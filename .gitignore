@@ -1,0 +1,15 @@
+# Large Bellhop files
+*.ray
+*.prt
+*.arr
+*.shd
+
+# MATLAB temporary files
+*.asv
+
+# Build artifacts
+*.o
+*.exe
+
+# acoustics toolbox dependency
+at/
