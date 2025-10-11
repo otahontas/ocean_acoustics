@@ -40,13 +40,39 @@ ds = str2double(line{1});
 fclose(fid);
 
 %% Setup
-c_of_z = @(z) interp1(ssp_z, ssp_c, z, 'linear', 'extrap');
-dc_dz = @(z) (c_of_z(z+0.1) - c_of_z(z-0.1)) / 0.2;
+KM_TO_M = 1000;
 
-angles = deg2rad(linspace(angle_min, angle_max, 1001));
-max_range = r_rec * 1.2;
-max_steps = 5e6;
-depth_tol = 10;
+% Physics
+DZ_FINITE_DIFF = 0.1;
+c_of_z = @(z) interp1(ssp_z, ssp_c, z, 'linear', 'extrap');
+dc_dz = @(z) (c_of_z(z+DZ_FINITE_DIFF) - c_of_z(z-DZ_FINITE_DIFF)) / (2*DZ_FINITE_DIFF);
+
+% Eigenray tracing
+N_BEAMS = 1001;
+MAX_RANGE_FACTOR = 1.2;
+MAX_STEPS = 5e6;
+DEPTH_TOLERANCE = 10;
+INTERPOLATION_TOLERANCE = 1e-12;
+STOP_TRACE_AFTER_TARGET_M = 1000;
+
+angles = deg2rad(linspace(angle_min, angle_max, N_BEAMS));
+max_range = r_rec * MAX_RANGE_FACTOR;
+
+% Plotting
+N_FAN_BEAMS = 101;
+FAN_ANGLE_MIN = -30;
+FAN_ANGLE_MAX = 30;
+MAX_PLOT_STEPS = 5000;
+PLOT_RANGE_FACTOR = 1.05;
+MAX_DEPTH_PLOT = 10000;
+FAN_COLOR = [0.8 0.8 0.8];
+EIGENRAY_LINE_WIDTH = 2;
+BOUNDARY_RECT_HEIGHT = 500;
+SOURCE_MARKER_SIZE = 10;
+RECEIVER_MARKER_SIZE = 8;
+YLIM_PADDING_TOP = 200;
+YLIM_PADDING_BOTTOM = 400;
+
 
 %% Trace eigenrays
 eigenrays = {};
@@ -55,7 +81,7 @@ for ia = 1:length(angles)
     theta = angles(ia);
     x = 0; z = z_s; t = 0;
 
-    est_size = min(ceil(max_range/ds)*3, max_steps);
+    est_size = min(ceil(max_range/ds)*3, MAX_STEPS);
     rpath = zeros(1, est_size);
     zpath = zeros(1, est_size);
     tpath = zeros(1, est_size);
@@ -67,7 +93,7 @@ for ia = 1:length(angles)
     last_finite_idx = 1;
     second_last_finite_idx = 0;
 
-    while x <= max_range && step < max_steps
+    while x <= max_range && step < MAX_STEPS
         step = step + 1;
 
         c_curr = c_of_z(z);
@@ -125,11 +151,11 @@ for ia = 1:length(angles)
             r1 = rpath(i1); z1 = zpath(i1); t1 = tpath(i1);
             r2 = rpath(i2); z2 = zpath(i2); t2 = tpath(i2);
 
-            if ( (r1 <= r_rec && r2 >= r_rec) || (r1 >= r_rec && r2 <= r_rec) ) && abs(r2-r1) > 1e-12
+            if ( (r1 <= r_rec && r2 >= r_rec) || (r1 >= r_rec && r2 <= r_rec) ) && abs(r2-r1) > INTERPOLATION_TOLERANCE
                 alpha = (r_rec - r1) / (r2 - r1);
                 z_at_r = z1 + alpha*(z2 - z1);
                 t_at_r = t1 + alpha*(t2 - t1);
-                if abs(z_at_r - z_rec) <= depth_tol
+                if abs(z_at_r - z_rec) <= DEPTH_TOLERANCE
                     entry.theta0 = angles(ia);
                     entry.rpath = rpath(1:idx);
                     entry.zpath = zpath(1:idx);
@@ -143,7 +169,7 @@ for ia = 1:length(angles)
             end
         end
 
-        if x > r_rec + 1000, break; end
+        if x > r_rec + STOP_TRACE_AFTER_TARGET_M, break; end
     end
 end
 
@@ -152,14 +178,13 @@ figure('Color','w','Position',[200 200 1000 600]);
 hold on; box on;
 
 % Plot fan
-nfan = 101;
-angles_plot = linspace(-30,30,nfan);
+angles_plot = linspace(FAN_ANGLE_MIN, FAN_ANGLE_MAX, N_FAN_BEAMS);
 for i = 1:length(angles_plot)
     th = deg2rad(angles_plot(i));
     theta = th; x = 0; z = z_s;
     r_plot = x; z_plot = z;
-    for kk = 1:5000
-        if x > r_rec*1.05 || z < 0 || z > 10000, break; end
+    for kk = 1:MAX_PLOT_STEPS
+        if x > r_rec*PLOT_RANGE_FACTOR || z < 0 || z > MAX_DEPTH_PLOT, break; end
         c_curr = c_of_z(z);
         g_local = dc_dz(z);
         kappa = -(g_local * cos(theta)) / c_curr;
@@ -194,7 +219,7 @@ for i = 1:length(angles_plot)
             r_plot(end+1) = x; z_plot(end+1) = z;
         end
     end
-    plot(r_plot/1000, z_plot, 'Color', [0.8 0.8 0.8]);
+    plot(r_plot/KM_TO_M, z_plot, 'Color', FAN_COLOR);
 end
 
 % Plot eigenrays
@@ -203,24 +228,24 @@ for k = 1:length(eigenrays)
     er_z = er.zpath;
     er_z(er_z < z_min) = z_min;
     er_z(er_z > z_max) = z_max;
-    plot(er.rpath/1000, er_z, 'LineWidth',2);
-    plot(r_rec/1000, er.z_at_r, 'ro', 'MarkerFaceColor','r');
+    plot(er.rpath/KM_TO_M, er_z, 'LineWidth', EIGENRAY_LINE_WIDTH);
+    plot(r_rec/KM_TO_M, er.z_at_r, 'ro', 'MarkerFaceColor','r');
 end
 
 % Boundaries
-rectangle('Position',[0 z_max r_rec/1000 z_max+500], ...
+rectangle('Position',[0 z_max r_rec/KM_TO_M z_max+BOUNDARY_RECT_HEIGHT], ...
          'FaceColor',[0.6 0.3 0],'EdgeColor','black','LineWidth', 1);
-rectangle('Position',[0 (-500) r_rec/1000 500], ...
+rectangle('Position',[0 (-BOUNDARY_RECT_HEIGHT) r_rec/KM_TO_M BOUNDARY_RECT_HEIGHT], ...
         'FaceColor',[0.5 0.7 1], 'EdgeColor','blue','LineWidth',1);
 
 % Source and receiver
-plot(0, z_s, 'kp', 'MarkerFaceColor','k', 'MarkerSize',10);
-plot(r_rec/1000, z_rec, 'mo', 'MarkerFaceColor','m', 'MarkerSize',8);
+plot(0, z_s, 'kp', 'MarkerFaceColor','k', 'MarkerSize', SOURCE_MARKER_SIZE);
+plot(r_rec/KM_TO_M, z_rec, 'mo', 'MarkerFaceColor','m', 'MarkerSize', RECEIVER_MARKER_SIZE);
 
 xlabel('Range (km)');
 ylabel('Depth (m)');
 set(gca,'YDir','reverse');
 title(sprintf('C-Linear: %d eigenrays', length(eigenrays)));
-xlim([0 r_rec/1000]);
-ylim([z_min - 200 z_max+400]);
+xlim([0 r_rec/KM_TO_M]);
+ylim([z_min - YLIM_PADDING_TOP z_max+YLIM_PADDING_BOTTOM]);
 grid on;
