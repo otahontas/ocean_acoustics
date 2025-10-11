@@ -46,4 +46,7 @@ make install || {
     exit 1
 }
 
+echo "Configuring MATLAB paths..."
+sed -i '' "s/^%addpath( fullfile(Home, 'bin' ) );/addpath( fullfile(Home, 'bin' ) );/" at_init_matlab.m # bin not added to path by default, so we override that here
+
 echo "Installation complete"

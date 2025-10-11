@@ -3,9 +3,10 @@
 
 clear; close all; clc;
 
-addpath('at/bin/');
-addpath('at/Matlab/');
-addpath('at/Matlab/Plot/');
+% Initialize Acoustics Toolbox paths
+cd('at');
+at_init_matlab;
+cd('..');
 
 % Copy env file to at directory
 copyfile('scenario.env', 'at/scenario.env');
@@ -22,3 +23,8 @@ figure;
 plotray('at/scenario.ray');
 saveas(gcf, 'bellhop_output.png');
 fprintf('Saved: bellhop_output.png\n');
+
+% Clean up temporary files
+delete('at/scenario.env');
+delete('at/scenario.prt');
+delete('at/scenario.ray');
