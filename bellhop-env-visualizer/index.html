@@ -148,6 +148,48 @@
             position: sticky;
             top: 0;
         }
+
+        .raw-file {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            white-space: pre;
+        }
+
+        .info-link {
+            display: inline-block;
+            margin-left: 5px;
+            color: #007bff;
+            text-decoration: none;
+            font-size: 12px;
+            cursor: help;
+        }
+
+        .info-link:hover {
+            text-decoration: underline;
+        }
+
+        .explanation {
+            font-size: 12px;
+            color: #666;
+            margin-top: 3px;
+            font-style: italic;
+        }
+
+        .doc-link {
+            color: #007bff;
+            font-size: 11px;
+            text-decoration: none;
+        }
+
+        .doc-link:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -173,7 +215,7 @@
                 </div>
 
                 <div class="viz-panel">
-                    <h2>Sound Speed Profile</h2>
+                    <h2>Sound speed profile</h2>
                     <canvas id="sspChart"></canvas>
                 </div>
 
@@ -183,8 +225,13 @@
                 </div>
 
                 <div class="viz-panel full-width">
-                    <h2>Sound Speed Profile Data</h2>
+                    <h2>Sound speed profile data</h2>
                     <div class="ssp-table" id="sspTable"></div>
+                </div>
+
+                <div class="viz-panel full-width">
+                    <h2>Raw file</h2>
+                    <div class="raw-file" id="rawFile"></div>
                 </div>
             </div>
         </div>
@@ -371,11 +418,14 @@
             if (file) handleFile(file);
         });
 
+        let rawFileContent = '';
+
         function handleFile(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
-                    const parser = new BellhopParser(e.target.result);
+                    rawFileContent = e.target.result;
+                    const parser = new BellhopParser(rawFileContent);
                     const data = parser.parse();
                     visualizeData(data);
                     errorDiv.classList.add('hidden');
@@ -405,32 +455,76 @@
 
             // Render SSP table
             renderSSPTable(data);
+
+            // Render raw file
+            renderRawFile();
+        }
+
+        // Explanation mapping with doc links
+        const explanations = {
+            runType: {
+                R: 'Ray trace (generates ray paths)',
+                C: 'Coherent TL (transmission loss calculation)',
+                I: 'Incoherent TL',
+                S: 'Semicoherent TL',
+                E: 'Eigenrays (only rays hitting receiver)',
+                A: 'Arrivals (amplitude/phase structure)',
+                source: 'https://oalib-acoustics.org/website_resources/AcousticsToolbox/manual/node61.html'
+            },
+            bottomType: {
+                V: 'Vacuum (perfect reflection)',
+                R: 'Rigid (hard bottom)',
+                A: 'Acoustic halfspace (realistic bottom)',
+                source: 'https://oalib-acoustics.org/website_resources/AcousticsToolbox/manual/node61.html'
+            },
+            options: {
+                info: 'C=c-linear, S=spline, N=n²-linear | V=vacuum, R=rigid, A=acoustic | W=write, F=file',
+                source: 'https://oalib-acoustics.org/website_resources/AcousticsToolbox/manual/node61.html'
+            }
+        };
+
+        function getExplanation(key, value) {
+            const exp = explanations[key];
+            if (!exp) return '';
+
+            if (key === 'options') {
+                return `<div class="explanation">${exp.info} <a href="${exp.source}" target="_blank" class="doc-link">[doc]</a></div>`;
+            }
+
+            const desc = exp[value] || exp[value.charAt(0)];
+            if (desc) {
+                return `<div class="explanation">${desc} <a href="${exp.source}" target="_blank" class="doc-link">[doc]</a></div>`;
+            }
+            return '';
         }
 
         function renderParameters(data) {
             const params = document.getElementById('params');
             const paramList = [
-                { label: 'Title', value: data.title },
-                { label: 'Frequency', value: `${data.frequency} Hz` },
-                { label: 'Options', value: data.options },
-                { label: 'SSP Points', value: data.sspPoints },
-                { label: 'Max Depth', value: `${data.maxDepth} m` },
-                { label: 'Bottom Type', value: data.bottomType },
-                { label: 'Sources', value: data.numSources },
-                { label: 'Source Depths', value: data.sourceDepths.join(', ') + ' m' },
-                { label: 'Receivers', value: data.numReceivers },
-                { label: 'Receiver Depths', value: formatRange(data.receiverDepths) + ' m' },
-                { label: 'Ranges', value: formatRange(data.ranges) + ' km' },
-                { label: 'Run Type', value: data.runType },
-                { label: 'Beams', value: data.numBeams },
-                { label: 'Beam Angles', value: `${data.beamAngles.min}° to ${data.beamAngles.max}°` },
-                { label: 'Step Size', value: `${data.stepSize} m` },
+                { label: 'Title', value: data.title, key: 'title' },
+                { label: 'Frequency', value: `${data.frequency} Hz`, key: 'frequency' },
+                { label: 'Options', value: data.options, key: 'options' },
+                { label: 'SSP points', value: data.sspPoints, key: 'sspPoints' },
+                { label: 'Max depth', value: `${data.maxDepth} m`, key: 'maxDepth' },
+                { label: 'Bottom type', value: data.bottomType, key: 'bottomType' },
+                { label: 'Sources', value: data.numSources, key: 'sources' },
+                { label: 'Source depths', value: data.sourceDepths.join(', ') + ' m', key: 'sourceDepths' },
+                { label: 'Receivers', value: data.numReceivers, key: 'receivers' },
+                { label: 'Receiver depths', value: formatRange(data.receiverDepths) + ' m', key: 'receiverDepths' },
+                { label: 'Ranges', value: formatRange(data.ranges) + ' km', key: 'ranges' },
+                { label: 'Run type', value: data.runType, key: 'runType' },
+                { label: 'Beams', value: data.numBeams, key: 'beams' },
+                { label: 'Beam angles', value: `${data.beamAngles.min}° to ${data.beamAngles.max}°`, key: 'beamAngles' },
+                { label: 'Step size', value: `${data.stepSize} m`, key: 'stepSize' },
             ];
 
             params.innerHTML = paramList.map(p => `
                 <div class="param-row">
-                    <span class="param-label">${p.label}</span>
-                    <span class="param-value">${p.value}</span>
+                    <div>
+                        <span class="param-label">${p.label}</span>
+                        <span class="param-value">${p.value}</span>
+                        ${getExplanation(p.key, p.value)}
+                    </div>
                 </div>
             `).join('');
         }
@@ -469,7 +563,7 @@
                         x: {
                             title: {
                                 display: true,
-                                text: 'Sound Speed (m/s)'
+                                text: 'Sound speed (m/s)'
                             }
                         },
                         y: {
@@ -594,7 +688,7 @@
                     <thead>
                         <tr>
                             <th>Depth (m)</th>
-                            <th>Sound Speed (m/s)</th>
+                            <th>Sound speed (m/s)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -608,6 +702,16 @@
                 </table>
             `;
             table.innerHTML = html;
+        }
+
+        function renderRawFile() {
+            const rawFile = document.getElementById('rawFile');
+            const lines = rawFileContent.split('\n');
+            const numberedLines = lines.map((line, i) => {
+                const lineNum = String(i + 1).padStart(3, ' ');
+                return `${lineNum}  ${line}`;
+            }).join('\n');
+            rawFile.textContent = numberedLines;
         }
     </script>
 </body>
