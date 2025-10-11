@@ -3,63 +3,15 @@
 
 clear; close all; clc;
 
-%% Read scenario.env
-% This section parses the Bellhop-style environment file.
-
-fid = fopen('scenario.env', 'r');
-
-% Skip file header
-fgetl(fid); fgetl(fid); fgetl(fid); fgetl(fid);
-
-% Read Sound Speed Profile (SSP)
-line = strsplit(strtrim(fgetl(fid)));
-n_ssp = str2double(line{1});
-z_min = str2double(line{2}); % Top boundary
-z_max = str2double(line{3}); % Bottom boundary
-
-ssp_z = zeros(n_ssp, 1);
-ssp_c = zeros(n_ssp, 1);
-for i = 1:n_ssp
-    line = strsplit(strtrim(fgetl(fid)));
-    ssp_z(i) = str2double(line{1});
-    ssp_c(i) = str2double(line{2});
-end
-
-% Skip boundary condition lines
-fgetl(fid); fgetl(fid);
-
-% Read source and receiver geometry
-fgetl(fid); % skip source count
-line = strsplit(strtrim(fgetl(fid)));
-z_s = str2double(line{1}); % Source depth
-
-fgetl(fid); % skip receiver depth count
-line = strsplit(strtrim(fgetl(fid)));
-z_rec = str2double(line{1}); % Receiver depth
-
-fgetl(fid); % skip receiver range count
-line = strsplit(strtrim(fgetl(fid)));
-r_rec = str2double(line{1}) * 1000; % Receiver range (km to m)
-
-% Read beam parameters
-fgetl(fid); fgetl(fid); % skip beam type and count
-line = strsplit(strtrim(fgetl(fid)));
-angle_min = str2double(line{1}); % Minimum launch angle
-angle_max = str2double(line{2}); % Maximum launch angle
-
-line = strsplit(strtrim(fgetl(fid)));
-ds = str2double(line{1}); % Step size (m)
-
-fclose(fid);
-
-%% Setup
+%% Read scenario and setup
+scenario = read_scenario('scenario.env');
 
 % Constants
 KM_TO_M = 1000;
 
 % Physics: Create function handles for sound speed and its gradient
 DZ_FINITE_DIFF = 0.1; % Step for finite difference gradient calculation
-c_of_z = @(z) interp1(ssp_z, ssp_c, z, 'linear', 'extrap');
+c_of_z = @(z) interp1(scenario.ssp_z, scenario.ssp_c, z, 'linear', 'extrap');
 dc_dz = @(z) (c_of_z(z+DZ_FINITE_DIFF) - c_of_z(z-DZ_FINITE_DIFF)) / (2*DZ_FINITE_DIFF);
 
 % Eigenray tracing parameters
@@ -71,8 +23,8 @@ INTERPOLATION_TOLERANCE = 1e-12;    % Tolerance for range interpolation
 STOP_TRACE_AFTER_TARGET_M = 1000;   % Stop tracing 1km after receiver range
 
 % Generate launch angles
-angles = deg2rad(linspace(angle_min, angle_max, N_BEAMS));
-max_range = r_rec * MAX_RANGE_FACTOR;
+angles = deg2rad(linspace(scenario.angle_min, scenario.angle_max, N_BEAMS));
+max_range = scenario.r_rec * MAX_RANGE_FACTOR;
 
 % Plotting parameters
 N_FAN_BEAMS = 101;                  % Number of beams for the display fan
@@ -98,10 +50,10 @@ eigenrays = {};
 for angle_idx = 1:length(angles)
     % Initialize ray state
     theta = angles(angle_idx);
-    x = 0; z = z_s; t = 0;
+    x = 0; z = scenario.z_s; t = 0;
 
     % Pre-allocate path arrays for speed
-    est_size = min(ceil(max_range/ds)*3, MAX_STEPS);
+    est_size = min(ceil(max_range/scenario.ds)*3, MAX_STEPS);
     rpath = zeros(1, est_size);
     zpath = zeros(1, est_size);
     tpath = zeros(1, est_size);
@@ -122,20 +74,20 @@ for angle_idx = 1:length(angles)
         g_local = dc_dz(z);
         kappa1 = -(g_local * cos(theta)) / c_curr; % Curvature
 
-        theta_new = theta + ds * kappa1;
-        x_new = x + ds * cos(theta);
-        z_new = z + ds * sin(theta);
-        t_new = t + ds / c_curr;
+        theta_new = theta + scenario.ds * kappa1;
+        x_new = x + scenario.ds * cos(theta);
+        z_new = z + scenario.ds * sin(theta);
+        t_new = t + scenario.ds / c_curr;
 
         % Boundary reflection logic
-        if (z_new < z_min) || (z_new > z_max)
+        if (z_new < scenario.z_min) || (z_new > scenario.z_max)
             % Interpolate to find hit point
-            if z_new < z_min
-                alpha = (z_min - z) / (z_new - z);
-                z_hit = z_min;
+            if z_new < scenario.z_min
+                alpha = (scenario.z_min - z) / (z_new - z);
+                z_hit = scenario.z_min;
             else
-                alpha = (z_max - z) / (z_new - z);
-                z_hit = z_max;
+                alpha = (scenario.z_max - z) / (z_new - z);
+                z_hit = scenario.z_max;
             end
             alpha = max(0,min(1,alpha)); % Clamp alpha to [0,1]
 
@@ -152,7 +104,7 @@ for angle_idx = 1:length(angles)
             theta = -theta;
 
             % Continue with remaining step distance
-            ds_rem = ds * (1 - alpha);
+            ds_rem = scenario.ds * (1 - alpha);
             if ds_rem > 0
                 x = x_hit + ds_rem * cos(theta);
                 z = z_hit + ds_rem * sin(theta);
@@ -180,13 +132,13 @@ for angle_idx = 1:length(angles)
             r_end = rpath(idx2); z_end = zpath(idx2); t_end = tpath(idx2);
 
             % Check if the last segment crossed the receiver range
-            if ( (r_start <= r_rec && r_end >= r_rec) || (r_start >= r_rec && r_end <= r_rec) ) && abs(r_end-r_start) > INTERPOLATION_TOLERANCE
+            if ( (r_start <= scenario.r_rec && r_end >= scenario.r_rec) || (r_start >= scenario.r_rec && r_end <= scenario.r_rec) ) && abs(r_end-r_start) > INTERPOLATION_TOLERANCE
                 % Interpolate to find depth at receiver range
-                alpha = (r_rec - r_start) / (r_end - r_start);
+                alpha = (scenario.r_rec - r_start) / (r_end - r_start);
                 z_at_r = z_start + alpha*(z_end - z_start);
                 t_at_r = t_start + alpha*(t_end - t_start);
 
-                if abs(z_at_r - z_rec) <= DEPTH_TOLERANCE
+                if abs(z_at_r - scenario.z_rec) <= DEPTH_TOLERANCE
                     % Found an eigenray, store it and stop tracing this beam
                     entry.theta0 = angles(angle_idx);
                     entry.rpath = rpath(1:path_idx);
@@ -202,7 +154,7 @@ for angle_idx = 1:length(angles)
         end
 
         % Optimization: stop if ray is well past the receiver
-        if x > r_rec + STOP_TRACE_AFTER_TARGET_M, break; end
+        if x > scenario.r_rec + STOP_TRACE_AFTER_TARGET_M, break; end
     end
 end
 
@@ -214,29 +166,29 @@ hold on; box on;
 angles_plot = linspace(FAN_ANGLE_MIN, FAN_ANGLE_MAX, N_FAN_BEAMS);
 for plot_angle_idx = 1:length(angles_plot)
     plot_angle = deg2rad(angles_plot(plot_angle_idx));
-    theta = plot_angle; x = 0; z = z_s;
+    theta = plot_angle; x = 0; z = scenario.z_s;
     r_plot = x; z_plot = z;
 
     for plot_step_idx = 1:MAX_PLOT_STEPS
         % Stop if ray goes too far or too deep
-        if x > r_rec*PLOT_RANGE_FACTOR || z < 0 || z > MAX_DEPTH_PLOT, break; end
+        if x > scenario.r_rec*PLOT_RANGE_FACTOR || z < 0 || z > MAX_DEPTH_PLOT, break; end
 
         % Simplified ray tracing for plotting (no travel time needed)
         c_curr = c_of_z(z);
         g_local = dc_dz(z);
         kappa = -(g_local * cos(theta)) / c_curr;
-        theta_new = theta + ds * kappa;
+        theta_new = theta + scenario.ds * kappa;
         x_new = x + ( sin(theta_new) - sin(theta) ) / kappa;
         z_new = z + ( cos(theta) - cos(theta_new) ) / kappa;
 
         % Boundary reflection
-        if (z_new < z_min) || (z_new > z_max)
-            if z_new < z_min
-                alpha = (z_min - z) / (z_new - z);
-                z_hit = z_min;
+        if (z_new < scenario.z_min) || (z_new > scenario.z_max)
+            if z_new < scenario.z_min
+                alpha = (scenario.z_min - z) / (z_new - z);
+                z_hit = scenario.z_min;
             else
-                alpha = (z_max - z) / (z_new - z);
-                z_hit = z_max;
+                alpha = (scenario.z_max - z) / (z_new - z);
+                z_hit = scenario.z_max;
             end
             alpha = max(0,min(1,alpha));
             x_hit = x + alpha * (x_new - x);
@@ -244,7 +196,7 @@ for plot_angle_idx = 1:length(angles_plot)
             r_plot(end+1) = NaN; z_plot(end+1) = NaN; % Break line
             theta = -theta; % Reflect
 
-            ds_rem = ds * (1 - alpha);
+            ds_rem = scenario.ds * (1 - alpha);
             if ds_rem > 0
                 x = x_hit + ds_rem * cos(theta);
                 z = z_hit + ds_rem * sin(theta);
@@ -265,27 +217,27 @@ end
 for eigenray_idx = 1:length(eigenrays)
     eigenray = eigenrays{eigenray_idx};
     er_z = eigenray.zpath;
-    er_z(er_z < z_min) = z_min; % Clamp to boundaries for plotting
-    er_z(er_z > z_max) = z_max;
+    er_z(er_z < scenario.z_min) = scenario.z_min; % Clamp to boundaries for plotting
+    er_z(er_z > scenario.z_max) = scenario.z_max;
     plot(eigenray.rpath/KM_TO_M, er_z, 'LineWidth', EIGENRAY_LINE_WIDTH);
-    plot(r_rec/KM_TO_M, eigenray.z_at_r, 'ro', 'MarkerFaceColor','r');
+    plot(scenario.r_rec/KM_TO_M, eigenray.z_at_r, 'ro', 'MarkerFaceColor','r');
 end
 
 % Plot ocean boundaries
-rectangle('Position',[0 z_max r_rec/KM_TO_M z_max+BOUNDARY_RECT_HEIGHT], ...
+rectangle('Position',[0 scenario.z_max scenario.r_rec/KM_TO_M scenario.z_max+BOUNDARY_RECT_HEIGHT], ...
          'FaceColor',[0.6 0.3 0],'EdgeColor','black','LineWidth', 1);
-rectangle('Position',[0 (-BOUNDARY_RECT_HEIGHT) r_rec/KM_TO_M BOUNDARY_RECT_HEIGHT], ...
+rectangle('Position',[0 (-BOUNDARY_RECT_HEIGHT) scenario.r_rec/KM_TO_M BOUNDARY_RECT_HEIGHT], ...
         'FaceColor',[0.5 0.7 1], 'EdgeColor','blue','LineWidth',1);
 
 % Plot source and receiver positions
-plot(0, z_s, 'kp', 'MarkerFaceColor','k', 'MarkerSize', SOURCE_MARKER_SIZE);
-plot(r_rec/KM_TO_M, z_rec, 'mo', 'MarkerFaceColor','m', 'MarkerSize', RECEIVER_MARKER_SIZE);
+plot(0, scenario.z_s, 'kp', 'MarkerFaceColor','k', 'MarkerSize', SOURCE_MARKER_SIZE);
+plot(scenario.r_rec/KM_TO_M, scenario.z_rec, 'mo', 'MarkerFaceColor','m', 'MarkerSize', RECEIVER_MARKER_SIZE);
 
 % Final plot adjustments
 xlabel('Range (km)');
 ylabel('Depth (m)');
 set(gca,'YDir','reverse');
 title(sprintf('C-Linear: %d eigenrays', length(eigenrays)));
-xlim([0 r_rec/KM_TO_M]);
-ylim([z_min - YLIM_PADDING_TOP z_max+YLIM_PADDING_BOTTOM]);
+xlim([0 scenario.r_rec/KM_TO_M]);
+ylim([scenario.z_min - YLIM_PADDING_TOP scenario.z_max+YLIM_PADDING_BOTTOM]);
 grid on;
