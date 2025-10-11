@@ -95,9 +95,9 @@ YLIM_PADDING_BOTTOM = 400;
 
 eigenrays = {};
 
-for ia = 1:length(angles)
+for angle_idx = 1:length(angles)
     % Initialize ray state
-    theta = angles(ia);
+    theta = angles(angle_idx);
     x = 0; z = z_s; t = 0;
 
     % Pre-allocate path arrays for speed
@@ -106,7 +106,7 @@ for ia = 1:length(angles)
     zpath = zeros(1, est_size);
     tpath = zeros(1, est_size);
     rpath(1) = x; zpath(1) = z; tpath(1) = t;
-    idx = 1;
+    path_idx = 1;
 
     step = 0;
     found = false;
@@ -143,10 +143,10 @@ for ia = 1:length(angles)
             t_hit = t + alpha * (t_new - t);
 
             % Store hit point and a NaN to break the line in plots
-            idx = idx + 1; rpath(idx) = x_hit; zpath(idx) = z_hit; tpath(idx) = t_hit;
+            path_idx = path_idx + 1; rpath(path_idx) = x_hit; zpath(path_idx) = z_hit; tpath(path_idx) = t_hit;
             second_last_finite_idx = last_finite_idx;
-            last_finite_idx = idx;
-            idx = idx + 1; rpath(idx) = NaN; zpath(idx) = NaN; tpath(idx) = NaN;
+            last_finite_idx = path_idx;
+            path_idx = path_idx + 1; rpath(path_idx) = NaN; zpath(path_idx) = NaN; tpath(path_idx) = NaN;
 
             % Reflect angle
             theta = -theta;
@@ -158,40 +158,40 @@ for ia = 1:length(angles)
                 z = z_hit + ds_rem * sin(theta);
                 c_at_hit = c_of_z(z_hit);
                 t = t_hit + ds_rem / c_at_hit;
-                idx = idx + 1; rpath(idx) = x; zpath(idx) = z; tpath(idx) = t;
+                path_idx = path_idx + 1; rpath(path_idx) = x; zpath(path_idx) = z; tpath(path_idx) = t;
                 second_last_finite_idx = last_finite_idx;
-                last_finite_idx = idx;
+                last_finite_idx = path_idx;
             else
                 x = x_hit; z = z_hit; t = t_hit;
             end
         else
             % No reflection, update state normally
             x = x_new; z = z_new; theta = theta_new; t = t_new;
-            idx = idx + 1; rpath(idx) = x; zpath(idx) = z; tpath(idx) = t;
+            path_idx = path_idx + 1; rpath(path_idx) = x; zpath(path_idx) = z; tpath(path_idx) = t;
             second_last_finite_idx = last_finite_idx;
-            last_finite_idx = idx;
+            last_finite_idx = path_idx;
         end
 
         % Check for eigenray (passing receiver range at correct depth)
         if second_last_finite_idx > 0 && ~found
-            i1 = second_last_finite_idx;
-            i2 = last_finite_idx;
-            r1 = rpath(i1); z1 = zpath(i1); t1 = tpath(i1);
-            r2 = rpath(i2); z2 = zpath(i2); t2 = tpath(i2);
+            idx1 = second_last_finite_idx;
+            idx2 = last_finite_idx;
+            r_start = rpath(idx1); z_start = zpath(idx1); t_start = tpath(idx1);
+            r_end = rpath(idx2); z_end = zpath(idx2); t_end = tpath(idx2);
 
             % Check if the last segment crossed the receiver range
-            if ( (r1 <= r_rec && r2 >= r_rec) || (r1 >= r_rec && r2 <= r_rec) ) && abs(r2-r1) > INTERPOLATION_TOLERANCE
+            if ( (r_start <= r_rec && r_end >= r_rec) || (r_start >= r_rec && r_end <= r_rec) ) && abs(r_end-r_start) > INTERPOLATION_TOLERANCE
                 % Interpolate to find depth at receiver range
-                alpha = (r_rec - r1) / (r2 - r1);
-                z_at_r = z1 + alpha*(z2 - z1);
-                t_at_r = t1 + alpha*(t2 - t1);
+                alpha = (r_rec - r_start) / (r_end - r_start);
+                z_at_r = z_start + alpha*(z_end - z_start);
+                t_at_r = t_start + alpha*(t_end - t_start);
 
                 if abs(z_at_r - z_rec) <= DEPTH_TOLERANCE
                     % Found an eigenray, store it and stop tracing this beam
-                    entry.theta0 = angles(ia);
-                    entry.rpath = rpath(1:idx);
-                    entry.zpath = zpath(1:idx);
-                    entry.tt = tpath(1:idx);
+                    entry.theta0 = angles(angle_idx);
+                    entry.rpath = rpath(1:path_idx);
+                    entry.zpath = zpath(1:path_idx);
+                    entry.tt = tpath(1:path_idx);
                     entry.z_at_r = z_at_r;
                     entry.t_at_r = t_at_r;
                     eigenrays{end+1} = entry;
@@ -212,12 +212,12 @@ hold on; box on;
 
 % Plot ray fan for visualization
 angles_plot = linspace(FAN_ANGLE_MIN, FAN_ANGLE_MAX, N_FAN_BEAMS);
-for i = 1:length(angles_plot)
-    th = deg2rad(angles_plot(i));
-    theta = th; x = 0; z = z_s;
+for plot_angle_idx = 1:length(angles_plot)
+    plot_angle = deg2rad(angles_plot(plot_angle_idx));
+    theta = plot_angle; x = 0; z = z_s;
     r_plot = x; z_plot = z;
 
-    for kk = 1:MAX_PLOT_STEPS
+    for plot_step_idx = 1:MAX_PLOT_STEPS
         % Stop if ray goes too far or too deep
         if x > r_rec*PLOT_RANGE_FACTOR || z < 0 || z > MAX_DEPTH_PLOT, break; end
 
@@ -262,13 +262,13 @@ for i = 1:length(angles_plot)
 end
 
 % Plot detected eigenrays
-for k = 1:length(eigenrays)
-    er = eigenrays{k};
-    er_z = er.zpath;
+for eigenray_idx = 1:length(eigenrays)
+    eigenray = eigenrays{eigenray_idx};
+    er_z = eigenray.zpath;
     er_z(er_z < z_min) = z_min; % Clamp to boundaries for plotting
     er_z(er_z > z_max) = z_max;
-    plot(er.rpath/KM_TO_M, er_z, 'LineWidth', EIGENRAY_LINE_WIDTH);
-    plot(r_rec/KM_TO_M, er.z_at_r, 'ro', 'MarkerFaceColor','r');
+    plot(eigenray.rpath/KM_TO_M, er_z, 'LineWidth', EIGENRAY_LINE_WIDTH);
+    plot(r_rec/KM_TO_M, eigenray.z_at_r, 'ro', 'MarkerFaceColor','r');
 end
 
 % Plot ocean boundaries
