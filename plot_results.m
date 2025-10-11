@@ -24,17 +24,17 @@ hold on; box on;
 angles_plot = linspace(FAN_ANGLE_MIN, FAN_ANGLE_MAX, N_FAN_BEAMS);
 for plot_angle_idx = 1:length(angles_plot)
     plot_angle = deg2rad(angles_plot(plot_angle_idx));
-    [r_plot, z_plot, ~] = trace_ray(plot_angle, scenario, c_of_z, dc_dz);
-    plot(r_plot/KM_TO_M, z_plot, 'Color', FAN_COLOR);
+    path = trace_ray(plot_angle, scenario, c_of_z, dc_dz);
+    plot(path.r/KM_TO_M, path.z, 'Color', FAN_COLOR);
 end
 
 % Plot detected eigenrays
 for eigenray_idx = 1:length(eigenrays)
     eigenray = eigenrays{eigenray_idx};
-    er_z = eigenray.zpath;
+    er_z = eigenray.path.z;
     er_z(er_z < scenario.z_min) = scenario.z_min; % Clamp to boundaries for plotting
     er_z(er_z > scenario.z_max) = scenario.z_max;
-    plot(eigenray.rpath/KM_TO_M, er_z, 'LineWidth', EIGENRAY_LINE_WIDTH);
+    plot(eigenray.path.r/KM_TO_M, er_z, 'LineWidth', EIGENRAY_LINE_WIDTH);
     plot(scenario.r_rec/KM_TO_M, eigenray.z_at_r, 'ro', 'MarkerFaceColor','r');
 end
 

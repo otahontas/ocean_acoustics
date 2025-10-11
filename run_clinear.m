@@ -26,16 +26,16 @@ angles = deg2rad(linspace(scenario.angle_min, scenario.angle_max, N_BEAMS));
 eigenrays = {};
 
 for angle_idx = 1:length(angles)
-    [rpath, zpath, tpath] = trace_ray(angles(angle_idx), scenario, c_of_z, dc_dz);
+    path = trace_ray(angles(angle_idx), scenario, c_of_z, dc_dz);
 
     % Check for eigenray (passing receiver range at correct depth)
-    for i = 1:length(rpath)-1
-        if isnan(rpath(i)) || isnan(rpath(i+1))
+    for i = 1:length(path.r)-1
+        if isnan(path.r(i)) || isnan(path.r(i+1))
             continue;
         end
 
-        r_start = rpath(i); z_start = zpath(i); t_start = tpath(i);
-        r_end = rpath(i+1); z_end = zpath(i+1); t_end = tpath(i+1);
+        r_start = path.r(i); z_start = path.z(i); t_start = path.t(i);
+        r_end = path.r(i+1); z_end = path.z(i+1); t_end = path.t(i+1);
 
         % Check if the last segment crossed the receiver range
         if ( (r_start <= scenario.r_rec && r_end >= scenario.r_rec) || (r_start >= scenario.r_rec && r_end <= scenario.r_rec) ) && abs(r_end-r_start) > INTERPOLATION_TOLERANCE
@@ -47,9 +47,7 @@ for angle_idx = 1:length(angles)
             if abs(z_at_r - scenario.z_rec) <= DEPTH_TOLERANCE
                 % Found an eigenray, store it and stop tracing this beam
                 entry.theta0 = angles(angle_idx);
-                entry.rpath = rpath;
-                entry.zpath = zpath;
-                entry.tt = tpath;
+                entry.path = path;
                 entry.z_at_r = z_at_r;
                 entry.t_at_r = t_at_r;
                 eigenrays{end+1} = entry;

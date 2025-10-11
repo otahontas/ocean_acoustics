@@ -1,7 +1,7 @@
-function [rpath, zpath, tpath] = trace_ray(start_angle, scenario, c_of_z, dc_dz)
+function path = trace_ray(start_angle, scenario, c_of_z, dc_dz)
 % TRACE_RAY Traces a single ray using the c-linear method.
-%   [rpath, zpath, tpath] = TRACE_RAY(start_angle, scenario, c_of_z, dc_dz)
-%   traces a ray with a given starting angle and returns its path.
+%   path = TRACE_RAY(start_angle, scenario, c_of_z, dc_dz)
+%   traces a ray with a given starting angle and returns its path as a struct.
 
 MAX_RANGE_FACTOR = 1.2;
 MAX_STEPS = 5e6;
@@ -79,9 +79,9 @@ while x <= max_range && step < MAX_STEPS
     if x > scenario.r_rec + 1000, break; end
 end
 
-% Trim unused allocated memory
-rpath = rpath(1:path_idx);
-zpath = zpath(1:path_idx);
-tpath = tpath(1:path_idx);
+% Trim unused allocated memory and return as a struct
+path.r = rpath(1:path_idx);
+path.z = zpath(1:path_idx);
+path.t = tpath(1:path_idx);
 
 end
