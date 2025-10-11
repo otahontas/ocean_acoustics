@@ -14,7 +14,7 @@ if [ ! -d "at" ]; then
         exit 1
     }
 
-    rm -f at.zip __MACOSX
+    rm -rf at.zip __MACOSX
     echo "Download complete"
 else
     echo "at/ folder already exists, skipping download"
@@ -23,6 +23,11 @@ fi
 echo "Building Acoustics Toolbox..."
 cd at/ || {
     echo "Error: at/ directory not found"
+    exit 1
+}
+
+mkdir -p bin || {
+    echo "Error: Failed to create bin directory"
     exit 1
 }
 

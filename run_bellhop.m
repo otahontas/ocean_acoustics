@@ -3,6 +3,7 @@
 
 clear; close all; clc;
 
+addpath('at/bin/');
 addpath('at/Matlab/');
 addpath('at/Matlab/Plot/');
 
