@@ -10,17 +10,25 @@ Ocean acoustics ray tracing comparison: custom c-linear implementation vs Bellho
 
 - `scenario.env`: Bellhop environment file (source, receiver, SSP, boundaries)
 - `compare.m`: Runs both models, generates comparison outputs
-- `run_clinear.m`: C-linear ray tracer reading from `scenario.env`
-- `run_bellhop.m`: Bellhop wrapper (uses `at/at_init_matlab.m` for paths)
+- `run_clinear.m`: Simple wrapper for the C-linear model
+- `run_bellhop.m`: Simple wrapper for the Bellhop model
+- `clinear/`: Folder for the C-linear model implementation
+  - `clinear.m`: Main function for the C-linear model
+  - `trace_ray.m`: Ray tracing logic
+  - `plot_results.m`: Plotting logic
+- `utils/`: Folder for utility functions
+  - `read_scenario.m`: Reads the `scenario.env` file
 - `at/`: Acoustics Toolbox
 
 ## Architecture
 
-`compare.m` calls `run_clinear` → `clinear_output.png`, then `run_bellhop` → `bellhop_output.png`
+`compare.m` calls `run_clinear` and `run_bellhop`.
 
-`run_clinear.m`: Parses `scenario.env`, traces rays, detects eigenrays (10m depth tolerance), plots ray fan + eigenrays
+`run_clinear.m`: Adds `clinear` and `utils` to the path, then calls the main `clinear` function.
 
-`run_bellhop.m`: Init AT paths, copy env file to `at/`, run Bellhop, plot with `plotray()`, cleanup temp files
+`clinear.m`: Reads the scenario, traces rays to find eigenrays, and plots the results.
+
+`run_bellhop.m`: Initializes the Acoustics Toolbox, copies the env file, runs Bellhop, plots the rays, and cleans up.
 
 ## Notes
 

@@ -26,8 +26,10 @@ Outputs: `clinear_output.png`, `bellhop_output.png`
 
 - `scenario.env` - Bellhop configuration (Munk profile, 1000m source/receiver, 100km range)
 - `compare.m` - Runs both models and generates comparison outputs
-- `run_clinear.m` - C-linear ray tracer reading from `scenario.env`
-- `run_bellhop.m` - Bellhop wrapper
+- `run_clinear.m` - Simple wrapper for the C-linear model
+- `run_bellhop.m` - Simple wrapper for the Bellhop model
+- `clinear/` - Folder for the C-linear model implementation
+- `utils/` - Folder for utility functions
 - `at/` - Acoustics Toolbox (Bellhop and other models, installed via script)
 
 ## Method
