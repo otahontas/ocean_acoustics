@@ -81,28 +81,33 @@
             color: #333;
         }
 
-        .params-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+        .params-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             font-size: 14px;
+            max-height: 600px;
+            overflow-y: auto;
         }
 
         .param-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px;
+            padding: 10px;
             background: #f8f9fa;
             border-radius: 4px;
+            border-left: 3px solid transparent;
+            transition: all 0.2s;
         }
 
         .param-label {
             font-weight: 600;
             color: #666;
+            display: block;
+            margin-bottom: 3px;
         }
 
         .param-value {
             color: #333;
+            display: block;
         }
 
         canvas {
@@ -153,7 +158,7 @@
             background: #f8f9fa;
             padding: 15px;
             border-radius: 4px;
-            max-height: 400px;
+            max-height: 600px;
             overflow-y: auto;
             font-family: 'Monaco', 'Courier New', monospace;
             font-size: 12px;
@@ -190,6 +195,23 @@
         .doc-link:hover {
             text-decoration: underline;
         }
+
+        .param-row:hover {
+            background: #e3f2fd;
+            border-left-color: #007bff;
+            cursor: pointer;
+        }
+
+        .raw-file-line {
+            display: block;
+            padding: 2px 0;
+            border-radius: 2px;
+        }
+
+        .raw-file-line.highlight {
+            background: #ffeb3b;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -209,9 +231,14 @@
 
         <div id="content" class="hidden">
             <div class="visualizations">
-                <div class="viz-panel full-width">
-                    <h2>Parameters</h2>
-                    <div id="params" class="params-grid"></div>
+                <div class="viz-panel">
+                    <h2>Raw file</h2>
+                    <div class="raw-file" id="rawFile"></div>
+                </div>
+
+                <div class="viz-panel">
+                    <h2>Parsed parameters</h2>
+                    <div id="params" class="params-list"></div>
                 </div>
 
                 <div class="viz-panel">
@@ -228,11 +255,6 @@
                     <h2>Sound speed profile data</h2>
                     <div class="ssp-table" id="sspTable"></div>
                 </div>
-
-                <div class="viz-panel full-width">
-                    <h2>Raw file</h2>
-                    <div class="raw-file" id="rawFile"></div>
-                </div>
             </div>
         </div>
     </div>
@@ -244,6 +266,7 @@
                 this.lines = content.split('\n').map(l => l.trim());
                 this.index = 0;
                 this.data = {};
+                this.data.lineNumbers = {}; // Track line numbers for highlighting
             }
 
             parse() {
@@ -290,9 +313,15 @@
             }
 
             parseHeader() {
+                this.data.lineNumbers.title = this.index + 1;
                 const title = this.nextLine().replace(/['"]/g, '');
+
+                this.data.lineNumbers.frequency = this.index + 1;
                 const freq = parseFloat(this.nextLine());
+
                 const nmedia = parseInt(this.nextLine());
+
+                this.data.lineNumbers.options = this.index + 1;
                 const options = this.nextLine().replace(/['"]/g, '');
 
                 this.data.title = title;
@@ -302,7 +331,9 @@
             }
 
             parseSSP() {
+                this.data.lineNumbers.sspPoints = this.index + 1;
                 const line = this.parseValue(this.nextLine());
+                this.data.lineNumbers.maxDepth = this.index; // Same line as sspPoints
                 const parts = line.split(/\s+/);
                 const npoints = parseInt(parts[0]);
                 const maxDepth = parseFloat(parts[parts.length - 1]);
@@ -311,14 +342,17 @@
                 this.data.maxDepth = maxDepth;
                 this.data.ssp = [];
 
+                const sspStart = this.index + 1;
                 for (let i = 0; i < npoints; i++) {
                     const dataLine = this.parseValue(this.nextLine());
                     const [depth, speed] = dataLine.split(/\s+/).map(parseFloat);
                     this.data.ssp.push({ depth, speed });
                 }
+                this.data.lineNumbers.ssp = [sspStart, this.index];
             }
 
             parseBottomBoundary() {
+                this.data.lineNumbers.bottomType = this.index + 1;
                 const line = this.parseValue(this.nextLine());
                 const type = line.match(/['"](.)['"]/)?.[1] || line.charAt(0);
                 this.data.bottomType = type;
@@ -336,6 +370,7 @@
 
             parseSources() {
                 const nsd = parseInt(this.nextLine());
+                this.data.lineNumbers.sourceDepths = this.index + 1;
                 const depths = this.parseValue(this.nextLine()).split(/\s+/).map(parseFloat);
                 this.data.numSources = nsd;
                 this.data.sourceDepths = depths;
@@ -343,6 +378,7 @@
 
             parseReceivers() {
                 const nrd = parseInt(this.nextLine());
+                this.data.lineNumbers.receiverDepths = this.index + 1;
                 const line = this.parseValue(this.nextLine());
                 const parts = line.split(/\s+/).map(parseFloat);
 
@@ -354,6 +390,7 @@
                 }
 
                 const nr = parseInt(this.nextLine());
+                this.data.lineNumbers.ranges = this.index + 1;
                 const rangeLine = this.parseValue(this.nextLine());
                 const rangeParts = rangeLine.split(/\s+/).map(parseFloat);
 
@@ -366,12 +403,14 @@
             }
 
             parseRunType() {
+                this.data.lineNumbers.runType = this.index + 1;
                 const line = this.parseValue(this.nextLine());
                 this.data.runType = line.replace(/['"]/g, '');
             }
 
             parseBeams() {
                 const nbeams = parseInt(this.nextLine());
+                this.data.lineNumbers.beamAngles = this.index + 1;
                 const angleLine = this.parseValue(this.nextLine());
                 const [minAngle, maxAngle] = angleLine.split(/\s+/).map(parseFloat);
 
@@ -380,6 +419,7 @@
             }
 
             parseNumericalParams() {
+                this.data.lineNumbers.stepSize = this.index + 1;
                 const line = this.parseValue(this.nextLine());
                 const [step, zbox, rbox] = line.split(/\s+/).map(parseFloat);
 
@@ -518,15 +558,45 @@
                 { label: 'Step size', value: `${data.stepSize} m`, key: 'stepSize' },
             ];
 
-            params.innerHTML = paramList.map(p => `
-                <div class="param-row">
-                    <div>
-                        <span class="param-label">${p.label}</span>
-                        <span class="param-value">${p.value}</span>
-                        ${getExplanation(p.key, p.value)}
+            params.innerHTML = paramList.map(p => {
+                const lineNum = data.lineNumbers[p.key];
+                const lineAttr = lineNum ? `data-line="${Array.isArray(lineNum) ? lineNum.join(',') : lineNum}"` : '';
+                return `
+                    <div class="param-row" ${lineAttr}>
+                        <div>
+                            <span class="param-label">${p.label}</span>
+                            <span class="param-value">${p.value}</span>
+                            ${getExplanation(p.key, p.value)}
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
+
+            // Add hover handlers
+            const rawFileContainer = document.getElementById('rawFile');
+            document.querySelectorAll('.param-row[data-line]').forEach(row => {
+                row.addEventListener('mouseenter', () => {
+                    const lines = row.getAttribute('data-line').split(',');
+                    lines.forEach(lineNum => {
+                        const rawLines = document.querySelectorAll(`.raw-file-line[data-line="${lineNum}"]`);
+                        rawLines.forEach(line => {
+                            line.classList.add('highlight');
+                            // Scroll first highlighted line into view (within container only)
+                            if (lines.indexOf(lineNum) === 0) {
+                                const lineTop = line.offsetTop;
+                                const containerHeight = rawFileContainer.clientHeight;
+                                const scrollPos = lineTop - (containerHeight / 2);
+                                rawFileContainer.scrollTo({ top: scrollPos, behavior: 'smooth' });
+                            }
+                        });
+                    });
+                });
+                row.addEventListener('mouseleave', () => {
+                    document.querySelectorAll('.raw-file-line.highlight').forEach(line => {
+                        line.classList.remove('highlight');
+                    });
+                });
+            });
         }
 
         function formatRange(val) {
@@ -707,11 +777,12 @@
         function renderRawFile() {
             const rawFile = document.getElementById('rawFile');
             const lines = rawFileContent.split('\n');
-            const numberedLines = lines.map((line, i) => {
+            const html = lines.map((line, i) => {
                 const lineNum = String(i + 1).padStart(3, ' ');
-                return `${lineNum}  ${line}`;
+                const escapedLine = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return `<span class="raw-file-line" data-line="${i + 1}">${lineNum}  ${escapedLine}</span>`;
             }).join('\n');
-            rawFile.textContent = numberedLines;
+            rawFile.innerHTML = html;
         }
     </script>
 </body>
