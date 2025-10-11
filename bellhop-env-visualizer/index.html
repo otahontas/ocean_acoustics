@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bellhop .env Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .upload-area {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            border: 2px dashed #ccc;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-area:hover {
+            border-color: #007bff;
+            background: #f8f9fa;
+        }
+
+        .upload-area.dragover {
+            border-color: #007bff;
+            background: #e7f3ff;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .visualizations {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .viz-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .viz-panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .params-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .param-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .param-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .param-value {
+            color: #333;
+        }
+
+        canvas {
+            max-width: 100%;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .ssp-table {
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Bellhop .env File Visualizer</h1>
+            <p>Upload or drag and drop a Bellhop .env file to visualize its configuration</p>
+        </header>
+
+        <div class="upload-area" id="uploadArea">
+            <p style="font-size: 18px; margin-bottom: 10px;">📁 Drop .env file here or click to browse</p>
+            <p style="color: #666; font-size: 14px;">Supports standard Bellhop environment files</p>
+            <input type="file" id="fileInput" accept=".env">
+        </div>
+
+        <div id="error" class="error hidden"></div>
+
+        <div id="content" class="hidden">
+            <div class="visualizations">
+                <div class="viz-panel full-width">
+                    <h2>Parameters</h2>
+                    <div id="params" class="params-grid"></div>
+                </div>
+
+                <div class="viz-panel">
+                    <h2>Sound Speed Profile</h2>
+                    <canvas id="sspChart"></canvas>
+                </div>
+
+                <div class="viz-panel">
+                    <h2>Geometry</h2>
+                    <canvas id="geometryCanvas"></canvas>
+                </div>
+
+                <div class="viz-panel full-width">
+                    <h2>Sound Speed Profile Data</h2>
+                    <div class="ssp-table" id="sspTable"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Parser for Bellhop .env files
+        class BellhopParser {
+            constructor(content) {
+                this.lines = content.split('\n').map(l => l.trim());
+                this.index = 0;
+                this.data = {};
+            }
+
+            parse() {
+                try {
+                    this.parseHeader();
+                    this.parseSSP();
+                    this.parseBottomBoundary();
+                    this.parseSources();
+                    this.parseReceivers();
+                    this.parseRunType();
+                    this.parseBeams();
+                    this.parseNumericalParams();
+                    return this.data;
+                } catch (e) {
+                    console.error('Parse error:', e);
+                    throw new Error(`Parse error at line ${this.index + 1}: ${e.message}`);
+                }
+            }
+
+            nextLine() {
+                while (this.index < this.lines.length) {
+                    const line = this.lines[this.index++];
+                    // Skip empty lines and comments
+                    if (line && !line.startsWith('!')) {
+                        return line;
+                    }
+                }
+                return null;
+            }
+
+            peekLine() {
+                const saved = this.index;
+                const line = this.nextLine();
+                this.index = saved;
+                return line;
+            }
+
+            parseValue(line) {
+                // Remove comments
+                line = line.split('!')[0].trim();
+                // Remove trailing slashes and commas
+                line = line.replace(/[\/,]+$/, '').trim();
+                return line;
+            }
+
+            parseHeader() {
+                const title = this.nextLine().replace(/['"]/g, '');
+                const freq = parseFloat(this.nextLine());
+                const nmedia = parseInt(this.nextLine());
+                const options = this.nextLine().replace(/['"]/g, '');
+
+                this.data.title = title;
+                this.data.frequency = freq;
+                this.data.nmedia = nmedia;
+                this.data.options = options;
+            }
+
+            parseSSP() {
+                const line = this.parseValue(this.nextLine());
+                const parts = line.split(/\s+/);
+                const npoints = parseInt(parts[0]);
+                const maxDepth = parseFloat(parts[parts.length - 1]);
+
+                this.data.sspPoints = npoints;
+                this.data.maxDepth = maxDepth;
+                this.data.ssp = [];
+
+                for (let i = 0; i < npoints; i++) {
+                    const dataLine = this.parseValue(this.nextLine());
+                    const [depth, speed] = dataLine.split(/\s+/).map(parseFloat);
+                    this.data.ssp.push({ depth, speed });
+                }
+            }
+
+            parseBottomBoundary() {
+                const line = this.parseValue(this.nextLine());
+                const type = line.match(/['"](.)['"]/)?.[1] || line.charAt(0);
+                this.data.bottomType = type;
+
+                // Next line might have bottom properties
+                const nextLine = this.peekLine();
+                if (nextLine && !nextLine.startsWith("'") && !nextLine.match(/^\d+$/)) {
+                    const props = this.parseValue(this.nextLine()).split(/\s+/).map(parseFloat);
+                    this.data.bottomDepth = props[0];
+                    if (props.length > 1) {
+                        this.data.bottomSpeed = props[1];
+                    }
+                }
+            }
+
+            parseSources() {
+                const nsd = parseInt(this.nextLine());
+                const depths = this.parseValue(this.nextLine()).split(/\s+/).map(parseFloat);
+                this.data.numSources = nsd;
+                this.data.sourceDepths = depths;
+            }
+
+            parseReceivers() {
+                const nrd = parseInt(this.nextLine());
+                const line = this.parseValue(this.nextLine());
+                const parts = line.split(/\s+/).map(parseFloat);
+
+                this.data.numReceivers = nrd;
+                if (parts.length === 2) {
+                    this.data.receiverDepths = { min: parts[0], max: parts[1] };
+                } else {
+                    this.data.receiverDepths = parts;
+                }
+
+                const nr = parseInt(this.nextLine());
+                const rangeLine = this.parseValue(this.nextLine());
+                const rangeParts = rangeLine.split(/\s+/).map(parseFloat);
+
+                this.data.numRanges = nr;
+                if (rangeParts.length === 2) {
+                    this.data.ranges = { min: rangeParts[0], max: rangeParts[1] };
+                } else {
+                    this.data.ranges = rangeParts;
+                }
+            }
+
+            parseRunType() {
+                const line = this.parseValue(this.nextLine());
+                this.data.runType = line.replace(/['"]/g, '');
+            }
+
+            parseBeams() {
+                const nbeams = parseInt(this.nextLine());
+                const angleLine = this.parseValue(this.nextLine());
+                const [minAngle, maxAngle] = angleLine.split(/\s+/).map(parseFloat);
+
+                this.data.numBeams = nbeams;
+                this.data.beamAngles = { min: minAngle, max: maxAngle };
+            }
+
+            parseNumericalParams() {
+                const line = this.parseValue(this.nextLine());
+                const [step, zbox, rbox] = line.split(/\s+/).map(parseFloat);
+
+                this.data.stepSize = step;
+                this.data.zbox = zbox;
+                this.data.rbox = rbox;
+            }
+        }
+
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const content = document.getElementById('content');
+        const errorDiv = document.getElementById('error');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const parser = new BellhopParser(e.target.result);
+                    const data = parser.parse();
+                    visualizeData(data);
+                    errorDiv.classList.add('hidden');
+                    content.classList.remove('hidden');
+                } catch (err) {
+                    errorDiv.textContent = err.message;
+                    errorDiv.classList.remove('hidden');
+                    content.classList.add('hidden');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        let sspChart = null;
+
+        function visualizeData(data) {
+            console.log('Parsed data:', data);
+
+            // Render parameters
+            renderParameters(data);
+
+            // Render SSP chart
+            renderSSPChart(data);
+
+            // Render geometry
+            renderGeometry(data);
+
+            // Render SSP table
+            renderSSPTable(data);
+        }
+
+        function renderParameters(data) {
+            const params = document.getElementById('params');
+            const paramList = [
+                { label: 'Title', value: data.title },
+                { label: 'Frequency', value: `${data.frequency} Hz` },
+                { label: 'Options', value: data.options },
+                { label: 'SSP Points', value: data.sspPoints },
+                { label: 'Max Depth', value: `${data.maxDepth} m` },
+                { label: 'Bottom Type', value: data.bottomType },
+                { label: 'Sources', value: data.numSources },
+                { label: 'Source Depths', value: data.sourceDepths.join(', ') + ' m' },
+                { label: 'Receivers', value: data.numReceivers },
+                { label: 'Receiver Depths', value: formatRange(data.receiverDepths) + ' m' },
+                { label: 'Ranges', value: formatRange(data.ranges) + ' km' },
+                { label: 'Run Type', value: data.runType },
+                { label: 'Beams', value: data.numBeams },
+                { label: 'Beam Angles', value: `${data.beamAngles.min}° to ${data.beamAngles.max}°` },
+                { label: 'Step Size', value: `${data.stepSize} m` },
+            ];
+
+            params.innerHTML = paramList.map(p => `
+                <div class="param-row">
+                    <span class="param-label">${p.label}</span>
+                    <span class="param-value">${p.value}</span>
+                </div>
+            `).join('');
+        }
+
+        function formatRange(val) {
+            if (typeof val === 'object' && val.min !== undefined) {
+                return `${val.min} to ${val.max}`;
+            }
+            return Array.isArray(val) ? val.join(', ') : val;
+        }
+
+        function renderSSPChart(data) {
+            const ctx = document.getElementById('sspChart');
+
+            if (sspChart) {
+                sspChart.destroy();
+            }
+
+            sspChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.ssp.map(p => p.speed),
+                    datasets: [{
+                        label: 'Sound Speed Profile',
+                        data: data.ssp.map(p => ({ x: p.speed, y: p.depth })),
+                        borderColor: '#007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Sound Speed (m/s)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Depth (m)'
+                            },
+                            reverse: true  // Depth increases downward
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderGeometry(data) {
+            const canvas = document.getElementById('geometryCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Set canvas size - use parent width if offsetWidth is 0
+            canvas.width = canvas.offsetWidth || canvas.parentElement.offsetWidth || 600;
+            canvas.height = 400;
+
+            const width = canvas.width;
+            const height = canvas.height;
+            const padding = 40;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Get max depth and range
+            const maxDepth = data.bottomDepth || data.maxDepth || 5000;
+            const maxRange = data.ranges.max !== undefined
+                ? data.ranges.max
+                : (Array.isArray(data.ranges) ? Math.max(...data.ranges) : data.ranges);
+
+            console.log('Geometry rendering:', { width, height, maxDepth, maxRange });
+
+            // Scale functions
+            const scaleX = (r) => padding + (r / maxRange) * (width - 2 * padding);
+            const scaleY = (d) => padding + (d / maxDepth) * (height - 2 * padding);
+
+            // Draw water column
+            ctx.fillStyle = '#e3f2fd';
+            ctx.fillRect(padding, padding, width - 2 * padding, height - 2 * padding);
+
+            // Draw surface
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(width - padding, padding);
+            ctx.stroke();
+
+            // Draw bottom
+            const bottomY = scaleY(maxDepth);
+            ctx.strokeStyle = '#795548';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(padding, bottomY);
+            ctx.lineTo(width - padding, bottomY);
+            ctx.stroke();
+
+            // Draw sources
+            ctx.fillStyle = '#f44336';
+            data.sourceDepths.forEach(depth => {
+                const y = scaleY(depth);
+                ctx.beginPath();
+                ctx.arc(padding + 20, y, 6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillText(`Source: ${depth}m`, padding + 30, y + 4);
+            });
+
+            // Draw receivers
+            ctx.fillStyle = '#4caf50';
+            const recDepths = data.receiverDepths.min !== undefined
+                ? [data.receiverDepths.min, data.receiverDepths.max]
+                : (Array.isArray(data.receiverDepths) ? data.receiverDepths : [data.receiverDepths]);
+
+            const recRange = data.ranges.max !== undefined
+                ? data.ranges.max
+                : (Array.isArray(data.ranges) ? data.ranges[0] : data.ranges);
+            const recX = scaleX(recRange);
+
+            if (recDepths.length === 2 && recDepths[0] !== recDepths[1]) {
+                // Draw receiver line
+                const y1 = scaleY(recDepths[0]);
+                const y2 = scaleY(recDepths[1]);
+                ctx.strokeStyle = '#4caf50';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(recX, y1);
+                ctx.lineTo(recX, y2);
+                ctx.stroke();
+                ctx.fillText(`Receivers: ${recDepths[0]}-${recDepths[1]}m`, recX - 60, y1 - 10);
+            } else {
+                recDepths.forEach(depth => {
+                    const y = scaleY(depth);
+                    ctx.beginPath();
+                    ctx.arc(recX, y, 6, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.fillText(`Receiver: ${depth}m`, recX + 10, y + 4);
+                });
+            }
+
+            // Draw axes labels
+            ctx.fillStyle = '#000';
+            ctx.font = '12px sans-serif';
+            ctx.fillText('0 m', padding - 30, padding + 5);
+            ctx.fillText(`${maxDepth.toFixed(0)} m`, padding - 30, bottomY + 5);
+            ctx.fillText('0 km', padding - 10, height - 10);
+            ctx.fillText(`${maxRange.toFixed(1)} km`, width - padding - 10, height - 10);
+        }
+
+        function renderSSPTable(data) {
+            const table = document.getElementById('sspTable');
+            const html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Depth (m)</th>
+                            <th>Sound Speed (m/s)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.ssp.map(p => `
+                            <tr>
+                                <td>${p.depth.toFixed(2)}</td>
+                                <td>${p.speed.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            table.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
