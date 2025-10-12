@@ -583,10 +583,7 @@
                             line.classList.add('highlight');
                             // Scroll first highlighted line into view (within container only)
                             if (lines.indexOf(lineNum) === 0) {
-                                const lineTop = line.offsetTop;
-                                const containerHeight = rawFileContainer.clientHeight;
-                                const scrollPos = lineTop - (containerHeight / 2);
-                                rawFileContainer.scrollTo({ top: scrollPos, behavior: 'smooth' });
+                                line.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }
                         });
                     });
