@@ -95,6 +95,15 @@ where $\theta$ is the ray angle and $c$ is the local speed of sound \cite{Lurton
 \subsection{Reflections}
 \subsection{Transfer loss}
 \subsection{Volume scattering (fish)}
+
+In addition to boundary interactions at the sea surface and seafloor, underwater sound propagation is affected by volume scattering from marine life within the water column. Volume scattering is characterized by a scattering cross section, defined as the ratio of scattered power to incident intensity on a unit volume \cite{Jensen}. This scattering contributes to both attenuation of coherent acoustic signals and generation of reverberation that interferes with sonar detection.
+
+At lower frequencies (below 10 kHz), fish with gas-filled swim bladders are the dominant volume scatterers \cite{Jensen}. The swim bladder presents a high acoustic impedance contrast with the surrounding tissue and seawater \cite{Jensen}. Above 20 kHz, smaller organisms such as zooplankton become the primary scatterers \cite{Jensen}. The target strength of individual fish depends on fish size, swim bladder morphology, frequency, and orientation relative to the acoustic beam \cite{Foote1983}. Typical target strengths range from $-$40 to $-$20 dB for individual fish at moderate frequencies, with swim bladder contribution accounting for 90-95\% of the backscattered energy \cite{Foote1983}.
+
+Volume scattering strength generally decreases with depth at approximately 5 dB per 300 m, with a notable exception being the deep scattering layer (DSL) \cite{Jensen}. The DSL is a concentrated layer of marine organisms, primarily small fish and zooplankton, that migrate vertically in the water column following the diurnal cycle \cite{Jensen}. This layer can produce scattering returns comparable in magnitude to those from physical boundaries \cite{Jensen}.
+
+In acoustic propagation modeling, volume scattering introduces two main effects: attenuation of the coherent field through scattering loss, and generation of a diffuse reverberation field \cite{Jensen}. The volume scattering strength $S_v$ is expressed in decibels and relates the scattered intensity to incident intensity per unit volume \cite{Jensen}. For a layer of thickness $H$, the integrated column scattering strength $S_c$ can be computed by integrating the local volume scattering strength $s_v(z)$ over depth \cite{Jensen}. These parameters are used in sonar performance prediction and acoustic propagation models for applications such as fisheries acoustics and marine mammal protection.
+
 \subsection{Sound propagation models}
 
 \section{METHODS}
@@ -159,6 +168,12 @@ F. Jensen, W. Kuperman, M. Porter and H. Schmidt, \emph{Computational Ocean Acou
 
 \bibitem{Lurton}
 X. Lurton, \enquote{Underwater acoustic propagation} in \emph{An Introduction to Underwater Acoustics: Principles and Applications,}(Springer Berlin, Heideberg, Germany, 2010), 2nd ed.
+
+\bibitem{Foote1983}
+K. G. Foote, \enquote{Linearity of Fisheries Acoustics, with Addition Theorems,} \emph{J. Acoust. Soc. Am.} vol. 73, no. 6, pp. 1932--1940 (1983 Jun.), https://doi.org/10.1121/1.389583.
+
+\bibitem{Porter}
+M. B. Porter, \emph{The Acoustics Toolbox}, http://oalib.hlsresearch.com/AcousticsToolbox/ (accessed Oct. 2025).
 
 
 %\bibitem{a_journal_paper}
