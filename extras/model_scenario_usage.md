@@ -1,74 +1,74 @@
-# How the C-Linear Model Uses scenario.env
 
-This document breaks down how the C-Linear model uses the `scenario.env` file, showing the actual values from the file at each point in the code.
+# `scenario.env` Variable Usage in `clinear` vs. `bellhop`
 
-### Sound Speed Profile (`ssp_z`, `ssp_c`)
+This document outlines how variables from the `scenario.env` file are utilized by the custom `clinear` MATLAB model and the industry-standard `bellhop` model.
 
-The 42 data points of depth (`ssp_z`) and sound speed (`ssp_c`) from `scenario.env` are used to create a function that can find the sound speed at any depth.
+### 1. Title
+*   **clinear**: The title is read from the `.env` file but is **not used** in the current implementation.
+*   **bellhop**: Bellhop uses the title directly from the `.env` file to **label the output plots** it generates. In the example `scenario.env`, this is 'Munk eigenrays'.
 
--   **File**: `clinear/clinear.m`
--   **L10**: `c_of_z = @(z) interp1(scenario.ssp_z, scenario.ssp_c, z, 'linear', 'extrap');`
-    -   **Usage with values**: The `scenario.ssp_z` array (containing values from `0.00` to `8000.00`) and the `scenario.ssp_c` array (containing values from `1485.57` to `1556.94`) are used to build the `c_of_z` interpolation function.
+### 2. Frequency
+*   **clinear**: This value is read but **not used**. The `clinear` model is a purely geometric ray tracing model that does not account for frequency-dependent effects like attenuation or scattering.
+*   **bellhop**: Frequency is a **fundamental input** for Bellhop. It uses it to calculate wave properties like phase, and to model frequency-dependent acoustic effects such as volume and boundary attenuation.
 
-### Depth Boundaries (`z_min` = 0.0, `z_max` = 8000.0)
+### 3. Options
+*   **clinear**: The options string (e.g., `'CVW'`) is parsed to identify the bottom type. The model uses this to determine how to handle ray reflections at the seafloor.
+*   **bellhop**: This string is a **critical set of instructions** for Bellhop that controls the core of its simulation. For example, `'CVW'` typically means:
+    *   `C`: Use **C**urvilinear coordinates for the ray trace.
+    *   `V`: The medium is described by a sound **V**elocity profile.
+    *   `W`: **W**rite the ray coordinates to a `.ray` file for plotting.
 
-The ocean surface is at `0.0` m and the seafloor is at `8000.0` m.
+### 4. SSP (Sound Speed Profile) Points
+*   **clinear**: This is the **most critical environmental input**. The model creates a continuous function for sound speed vs. depth (`c(z)`) by linearly interpolating between these points. This function is then used to calculate the ray paths.
+*   **bellhop**: Bellhop also uses these points directly to define the sound speed environment, which is essential for its calculations, whether it's running in ray mode or a more advanced wave theory mode.
 
--   **File**: `clinear/trace_ray.m`
--   **L40**: `if (z_new < 0.0) || (z_new > 8000.0)`
-    -   **Usage with values**: Checks if the ray has gone above the surface or below the seafloor.
--   **L43-L47**: These lines calculate the intersection point with either the `0.0` m surface or the `8000.0` m floor for a perfect reflection.
--   **File**: `clinear/plot_results.m`
--   **L35**: `er_z(er_z < 0.0) = 0.0;`
--   **L36**: `er_z(er_z > 8000.0) = 8000.0;`
-    -   **Usage with values**: Ensures the plotted eigenrays don't go outside the `0.0` and `8000.0` meter boundaries.
--   **L57**: `ylim([0.0 - 200, 8000.0 + 400]);`
-    -   **Usage with values**: Sets the plot's y-axis limits to `[-200, 8400]` to give some padding around the ocean boundaries.
+### 5. Max Depth
+*   **clinear**: The maximum depth is used to define the **bottom of the ocean**. The model detects when a ray's depth exceeds this value to trigger a bottom reflection.
+*   **bellhop**: Similarly, Bellhop uses this value to define the depth of the seafloor boundary in its environmental model.
 
-### Source Depth (`z_s` = 1000.0)
+### 6. Bottom Type
+*   **clinear**: The model identifies the bottom type (e.g., `'A'` for an acousto-elastic half-space) but the current `trace_ray.m` implementation treats it as a **simple perfectly reflective surface**. It does not model the more complex physics associated with different bottom types.
+*   **bellhop**: Bellhop has a sophisticated physics engine for bottom interaction. The `'A'` flag tells it to model the bottom as an **acousto-elastic half-space**, using the detailed properties (P-wave speed, S-wave speed, density, attenuation) provided in the lines that follow. This allows for realistic modeling of energy loss and phase changes upon reflection.
 
-The sound source is located at a depth of `1000.0` m.
+### 7. Bottom Roughness
+*   **clinear**: This is **not used**. The model assumes a perfectly smooth, flat bottom.
+*   **bellhop**: The `scenario.env` file does not appear to specify bottom roughness. While Bellhop *can* model bottom roughness, it requires a specific option flag (like `'R'`) and associated parameters, which are not present in the current configuration. The parameters seen after the `'A'` line define the material properties of the bottom sediment, not its surface roughness.
 
--   **File**: `clinear/trace_ray.m`
--   **L13**: `x = 0; z = 1000.0; t = 0;`
-    -   **Usage with values**: Initializes the starting depth `z` of every ray to `1000.0`.
--   **File**: `clinear/plot_results.m`
--   **L48**: `plot(0, 1000.0, 'kp', ...);`
-    -   **Usage with values**: Plots the black source marker at a depth of `1000.0` m at range 0.
+### 8. Bottom Properties
+This refers to the line: `8000.0 1600.0 0.0 1.5 0.0 0.0 /`
+*   **clinear**: These values are read but **not used**. The model treats the bottom as a simple, perfectly reflective boundary.
+*   **bellhop**: These are the **parameters for the acousto-elastic half-space** (`'A'`). They typically represent:
+    *   Top P-wave speed (1600 m/s)
+    *   Bottom P-wave speed (if different)
+    *   Top S-wave speed (0.0 m/s, indicating a fluid bottom)
+    *   Bottom S-wave speed (if different)
+    *   Density (1.5 g/cm³)
+    *   P-wave attenuation (0.0 dB/wavelength)
+    *   S-wave attenuation (0.0 dB/wavelength)
 
-### Receiver Depth (`z_rec` = 1000.0) & Range (`r_rec` = 100000.0)
+### 9. Source Depth(s)
+*   **clinear**: This is used as the **initial depth (`z_src`)** from which all rays are launched.
+*   **bellhop**: This sets the **depth of the acoustic source**. Bellhop can handle multiple source depths, but here only one is specified (1000.0 m).
 
-The receiver is at a depth of `1000.0` m and a range of `100.0` km (which is `100000.0` m in the code).
+### 10. Receiver Depth(s)
+*   **clinear**: This is the **target depth (`z_rec`)** for eigenray detection. The model checks which of the traced rays cross the receiver range at this specific depth (within a certain tolerance).
+*   **bellhop**: This specifies the depth(s) of the receiver(s) for which the acoustic field is calculated.
 
--   **File**: `clinear/clinear.m`
--   **L40**: `if ( (r_start <= 100000.0 && r_end >= 100000.0) || ...`
-    -   **Usage with values**: Checks if a ray segment has crossed the `100,000` m receiver range.
--   **L42**: `alpha = (100000.0 - r_start) / (r_end - r_start);`
-    -   **Usage with values**: Interpolates to find the ray's depth at exactly `100,000` m.
--   **L46**: `if abs(z_at_r - 1000.0) <= 10`
-    -   **Usage with values**: Checks if the ray's depth is within 10 meters of the `1000.0` m receiver depth to be considered an eigenray.
--   **File**: `clinear/trace_ray.m`
--   **L9**: `max_range = 100000.0 * 1.2;`
-    -   **Usage with values**: Sets the maximum tracing distance to `120,000` m.
--   **File**: `clinear/plot_results.m`
--   **L49**: `plot(100000.0/1000, 1000.0, 'mo', ...);`
-    -   **Usage with values**: Plots the magenta receiver marker at `100` km range and `1000.0` m depth.
+### 11. Receiver Range(s)
+*   **clinear**: This is the **target range (`r_rec`)** for eigenray detection.
+*   **bellhop**: This specifies the range(s) of the receiver(s). In this case, it's just one receiver at 100 km.
 
-### Beam Angles (`angle_min` = -60.0, `angle_max` = 60.0)
+### 12. Run Type & Beams
+This refers to `'E'` and `501`.
+*   **clinear**: The run type is not explicitly used, but the number of beams (`501` in the file, but hardcoded to `1001` in `clinear.m`) is used to determine how many initial rays to trace when searching for eigenrays.
+*   **bellhop**: The `'E'` specifies the run-type, telling Bellhop to perform an **Eigenray calculation**. The `501` is the number of beams it will trace between the specified launch angles.
 
-The model searches for eigenrays by launching rays at angles from `-60.0` to `+60.0` degrees.
+### 13. Launch Angles
+This refers to `-60.0 60.0 /`.
+*   **clinear**: These values (`angle_min`, `angle_max`) define the **angular fan of rays** to be launched from the source. The `linspace` function generates a set of evenly spaced angles between these two bounds.
+*   **bellhop**: These are the minimum and maximum launch angles (in degrees) that Bellhop will use for its ray trace.
 
--   **File**: `clinear/clinear.m`
--   **L19**: `angles = deg2rad(linspace(-60.0, 60.0, 1001));`
-    -   **Usage with values**: Creates an array of 1001 launch angles evenly spaced between `-60.0` and `+60.0` degrees.
-
-### Step Size (`ds` = 30.0)
-
-The ray path is calculated in discrete steps of `30.0` meters.
-
--   **File**: `clinear/trace_ray.m`
--   **L34**: `theta_new = theta + 30.0 * kappa1;`
--   **L35**: `x_new = x + 30.0 * cos(theta);`
--   **L36**: `z_new = z + 30.0 * sin(theta);`
--   **L37**: `t_new = t + 30.0 / c_curr;`
-    -   **Usage with values**: The `30.0` m step size is used in every iteration of the ray tracing loop to calculate the ray's next position and travel time.
+### 14. Plotting / Calculation Grid
+This refers to the final line: `30.0 9000.0 120.0`
+*   **clinear**: These values are **not used**. Plotting limits are determined dynamically or are hardcoded in `plot_results.m`.
+*   **bellhop**: This line is often used to define the **calculation grid** for certain run types (like transmission loss), but for an eigenray (`'E'`) run, these values are typically ignored as the calculation is tied to the specific receiver locations.
