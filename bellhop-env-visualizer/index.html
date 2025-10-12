@@ -352,19 +352,29 @@
             }
 
             parseBottomBoundary() {
-                this.data.lineNumbers.bottomType = this.index + 1;
+                const lineIndex = this.index + 1;
+                this.data.lineNumbers.bottomType = lineIndex;
+                this.data.lineNumbers.bottomRoughness = lineIndex;
+
                 const line = this.parseValue(this.nextLine());
-                const type = line.match(/['"](.)['"]/)?.[1] || line.charAt(0);
+                const parts = line.replace(/['"]/g, '').split(/\s+/);
+                const type = parts[0];
+                const sigma = parseFloat(parts[1]) || 0.0;
+
                 this.data.bottomType = type;
+                this.data.bottomRoughness = sigma;
 
                 // Next line might have bottom properties
                 const nextLine = this.peekLine();
-                if (nextLine && !nextLine.startsWith("'") && !nextLine.match(/^\d+$/)) {
+                if (nextLine && !nextLine.startsWith("'" ) && !nextLine.match(/^\d+$/)) {
+                    this.data.lineNumbers.bottomProps = this.index + 1;
                     const props = this.parseValue(this.nextLine()).split(/\s+/).map(parseFloat);
                     this.data.bottomDepth = props[0];
-                    if (props.length > 1) {
-                        this.data.bottomSpeed = props[1];
-                    }
+                    this.data.bottomCompressionalSpeed = props[1];
+                    this.data.bottomShearSpeed = props[2];
+                    this.data.bottomDensity = props[3];
+                    this.data.bottomCompressionalAttenuation = props[4];
+                    this.data.bottomShearAttenuation = props[5];
                 }
             }
 
@@ -419,7 +429,10 @@
             }
 
             parseNumericalParams() {
-                this.data.lineNumbers.stepSize = this.index + 1;
+                const lineIndex = this.index + 1;
+                this.data.lineNumbers.stepSize = lineIndex;
+                this.data.lineNumbers.zbox = lineIndex;
+                this.data.lineNumbers.rbox = lineIndex;
                 const line = this.parseValue(this.nextLine());
                 const [step, zbox, rbox] = line.split(/\s+/).map(parseFloat);
 
@@ -520,6 +533,10 @@
             options: {
                 info: 'C=c-linear, S=spline, N=n²-linear | V=vacuum, R=rigid, A=acoustic | W=write, F=file',
                 source: 'https://oalib-acoustics.org/website_resources/AcousticsToolbox/manual/node61.html'
+            },
+            bottomProps: {
+                info: 'Parameters for an acousto-elastic half-space bottom.',
+                source: 'EnvironmentalFile.htm#6a_-_Bottom_Halfspace_Properties_'
             }
         };
 
@@ -527,7 +544,7 @@
             const exp = explanations[key];
             if (!exp) return '';
 
-            if (key === 'options') {
+            if (key === 'options' || key === 'bottomProps') {
                 return `<div class="explanation">${exp.info} <a href="${exp.source}" target="_blank" class="doc-link">[doc]</a></div>`;
             }
 
@@ -547,6 +564,13 @@
                 { label: 'SSP points', value: data.sspPoints, key: 'sspPoints' },
                 { label: 'Max depth', value: `${data.maxDepth} m`, key: 'maxDepth' },
                 { label: 'Bottom type', value: data.bottomType, key: 'bottomType' },
+                { label: 'Bottom roughness', value: `${data.bottomRoughness} m`, key: 'bottomRoughness' },
+                { label: 'Bottom Depth', value: data.bottomDepth ? `${data.bottomDepth} m` : 'N/A', key: 'bottomProps' },
+                { label: 'Bottom P-wave speed', value: data.bottomCompressionalSpeed ? `${data.bottomCompressionalSpeed} m/s` : 'N/A', key: 'bottomProps' },
+                { label: 'Bottom S-wave speed', value: data.bottomShearSpeed ? `${data.bottomShearSpeed} m/s` : 'N/A', key: 'bottomProps' },
+                { label: 'Bottom Density', value: data.bottomDensity ? `${data.bottomDensity} g/cm³` : 'N/A', key: 'bottomProps' },
+                { label: 'Bottom P-wave atten.', value: data.bottomCompressionalAttenuation ? `${data.bottomCompressionalAttenuation} dB/λ` : 'N/A', key: 'bottomProps' },
+                { label: 'Bottom S-wave atten.', value: data.bottomShearAttenuation ? `${data.bottomShearAttenuation} dB/λ` : 'N/A', key: 'bottomProps' },
                 { label: 'Sources', value: data.numSources, key: 'sources' },
                 { label: 'Source depths', value: data.sourceDepths.join(', ') + ' m', key: 'sourceDepths' },
                 { label: 'Receivers', value: data.numReceivers, key: 'receivers' },
@@ -556,6 +580,8 @@
                 { label: 'Beams', value: data.numBeams, key: 'beams' },
                 { label: 'Beam angles', value: `${data.beamAngles.min}° to ${data.beamAngles.max}°`, key: 'beamAngles' },
                 { label: 'Step size', value: `${data.stepSize} m`, key: 'stepSize' },
+                { label: 'Max ray depth (zbox)', value: data.zbox ? `${data.zbox} m` : 'N/A', key: 'zbox' },
+                { label: 'Max ray range (rbox)', value: data.rbox ? `${data.rbox} km` : 'N/A', key: 'rbox' },
             ];
 
             params.innerHTML = paramList.map(p => {
