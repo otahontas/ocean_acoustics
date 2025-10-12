@@ -96,13 +96,13 @@ where $\theta$ is the ray angle and $c$ is the local speed of sound \cite{Lurton
 \subsection{Transfer loss}
 \subsection{Volume scattering (fish)}
 
-In addition to boundary interactions at the sea surface and seafloor, underwater sound propagation is affected by volume scattering from marine life within the water column. Volume scattering is characterized by a scattering cross section, defined as the ratio of scattered power to incident intensity on a unit volume \cite{Jensen}. This scattering contributes to both attenuation of coherent acoustic signals and generation of reverberation that interferes with sonar detection.
+In addition to boundary interactions at the sea surface and seafloor, sound propagation in the ocean is affected by volume scattering from marine life within the water column. Volume scattering is characterized by a scattering cross section, defined as the ratio of scattered power to incident intensity on a unit volume. This scattering contributes to both attenuation of coherent acoustic signals and generation of reverberation that interferes with sonar detection.
 
-At lower frequencies (below 10 kHz), fish with gas-filled swim bladders are the dominant volume scatterers \cite{Jensen}. The swim bladder presents a high acoustic impedance contrast with the surrounding tissue and seawater \cite{Jensen}. Above 20 kHz, smaller organisms such as zooplankton become the primary scatterers \cite{Jensen}. The target strength of individual fish depends on fish size, swim bladder morphology, frequency, and orientation relative to the acoustic beam \cite{Foote1983}. Typical target strengths range from $-$40 to $-$20 dB for individual fish at moderate frequencies, with swim bladder contribution accounting for 90-95\% of the backscattered energy \cite{Foote1983}.
+At lower frequencies (below 10 kHz), fish with gas-filled swim bladders are the dominant volume scatterers \cite{Jensen}. The swim bladder presents a high acoustic impedance contrast with the surrounding tissue and seawater, causing strong backscattering. Above 20 kHz, smaller organisms such as zooplankton become the primary scatterers. The target strength of individual fish depends on fish size, swim bladder morphology, frequency, and orientation relative to the acoustic beam, with typical values ranging from $-$40 to $-$20 dB for individual fish at moderate frequencies \cite{Foote1983}. The swim bladder contribution accounts for 90-95\% of the backscattered energy.
 
-Volume scattering strength generally decreases with depth at approximately 5 dB per 300 m, with a notable exception being the deep scattering layer (DSL) \cite{Jensen}. The DSL is a concentrated layer of marine organisms, primarily small fish and zooplankton, that migrate vertically in the water column following the diurnal cycle \cite{Jensen}. This layer can produce scattering returns comparable in magnitude to those from physical boundaries \cite{Jensen}.
+Volume scattering strength generally decreases with depth at approximately 5 dB per 300 m, with a notable exception being the deep scattering layer (DSL). The DSL is a concentrated layer of marine organisms, primarily small fish and zooplankton, that migrate vertically in the water column following the diurnal cycle. This layer can produce scattering returns comparable in magnitude to those from physical boundaries \cite{Jensen}.
 
-In acoustic propagation modeling, volume scattering introduces two main effects: attenuation of the coherent field through scattering loss, and generation of a diffuse reverberation field \cite{Jensen}. The volume scattering strength $S_v$ is expressed in decibels and relates the scattered intensity to incident intensity per unit volume \cite{Jensen}. For a layer of thickness $H$, the integrated column scattering strength $S_c$ can be computed by integrating the local volume scattering strength $s_v(z)$ over depth \cite{Jensen}. These parameters are used in sonar performance prediction and acoustic propagation models for applications such as fisheries acoustics and marine mammal protection.
+In acoustic propagation modeling, volume scattering introduces two main effects: attenuation of the coherent field through scattering loss, and generation of a diffuse reverberation field. The volume scattering strength $S_v$ is expressed in decibels and relates the scattered intensity to incident intensity per unit volume. For a layer of thickness $H$, the integrated column scattering strength $S_c$ can be computed by integrating the local volume scattering strength $s_v(z)$ over depth. These parameters are used in sonar performance prediction and acoustic propagation models for applications such as fisheries acoustics and marine mammal protection.
 
 \subsection{Sound propagation models}
 
@@ -111,7 +111,7 @@ In acoustic propagation modeling, volume scattering introduces two main effects:
 \subsection{Discretized C-linear}
 \subsection{Bellhop}
 
-Bellhop is a beam tracing program developed by Michael Porter as part of the Acoustics Toolbox \cite{Porter}. Unlike simple ray-based methods that treat acoustic paths as infinitesimally thin lines, Bellhop employs Gaussian beam tracing, where each ray has a finite width. This approach reduces artifacts near caustics and boundaries.
+Bellhop is a beam tracing program developed by Michael Porter as part of the Acoustics Toolbox \cite{Porter}. Unlike simple ray-based methods that treat acoustic paths as infinitesimally thin lines, Bellhop employs Gaussian beam tracing, where each ray has a finite width. This approach can reduce artifacts near caustics and boundaries that are problematic for pure ray methods.
 
 The Gaussian beam formulation extends traditional ray theory by associating a complex beam width parameter with each ray. As the beam propagates through the medium, both its center trajectory and width evolve according to coupled differential equations. For a beam with width parameter $q(s)$, the evolution along arc length $s$ is governed by
 
@@ -119,9 +119,9 @@ The Gaussian beam formulation extends traditional ray theory by associating a co
 \frac{dq}{ds} = \frac{c^2}{q} \nabla^2 c,
 \end{equation}
 
-where $c$ is the local speed of sound and $\nabla^2 c$ represents the second derivative of the sound speed profile. This allows Bellhop to handle regions where rays converge (caustics) without the singularities that occur in pure ray methods. At each receiver location, contributions from all beams are summed with appropriate amplitude and phase corrections based on beam geometry.
+where $c$ is the local speed of sound and $\nabla^2 c$ represents the second derivative of the sound speed profile. This formulation allows handling of regions where rays converge (caustics) without the singularities that occur in pure ray methods. At each receiver location, contributions from all beams are summed with appropriate amplitude and phase corrections based on beam geometry.
 
-Bellhop's numerical integration uses an adaptive step size algorithm that automatically adjusts to ensure ray paths accurately land on discontinuities in the sound speed profile, such as at SSP points and boundary segments. This ensures proper handling of refraction at layer interfaces and specular reflections at boundaries. The integrator follows the standard ray equations derived from Snell's law in stratified media, but with additional terms to track beam spreading and curvature.
+Bellhop's numerical integration uses an adaptive step size algorithm that automatically adjusts to ensure ray paths accurately land on discontinuities in the sound speed profile, such as at SSP points and boundary segments. This approach ensures proper handling of refraction at layer interfaces and specular reflections at boundaries. The integrator follows the standard ray equations derived from Snell's law in stratified media, with additional terms to track beam spreading and curvature.
 
 \subsubsection{Configuration via .env Files}
 
@@ -129,17 +129,17 @@ Bellhop reads its environmental parameters from text files with the `.env` exten
 
 The boundary specification allows three main types: Vacuum boundaries (`V`) produce perfect reflection with no transmission; Rigid boundaries (`R`) enforce zero normal particle velocity; and Acoustic halfspace boundaries (`A`) model the seabed as a fluid halfspace with specified sound speed, density, and attenuation. For the acoustic halfspace option, parameters are given as depth, sound speed, shear speed (zero for fluid), density, compressional attenuation, and shear attenuation. These boundary models range from simple geometric reflection to frequency-dependent bottom interaction.
 
-Bellhop supports multiple run types specified in the `.env` file: Ray tracing (`R`) outputs the full geometric paths of all launched rays; Eigenray (`E`) identifies only those rays connecting source to receiver; Coherent transmission loss (`C`) computes the complex pressure field by summing beam contributions with phase information; Incoherent transmission loss (`I`) sums intensities without phase; and Semicoherent (`S`) uses a hybrid approach. The choice of run type determines both the computational cost and the physical interpretation of results.
+Bellhop supports multiple run types specified in the `.env` file: Ray tracing (`R`) outputs the full geometric paths of all launched rays; Eigenray (`E`) identifies only those rays connecting source to receiver; Coherent transmission loss (`C`) computes the complex pressure field by summing beam contributions with phase information; Incoherent transmission loss (`I`) sums intensities without phase; and Semicoherent (`S`) uses a hybrid approach. The choice of run type will determine both the computational cost and the physical interpretation of results.
 
 \subsubsection{Coherent and Incoherent Summation}
 
-Bellhop can perform both coherent and incoherent field summation. In coherent mode (`C`), Bellhop computes the complex acoustic pressure at each receiver by summing contributions from all beams with their relative phases preserved:
+Bellhop can perform both coherent and incoherent field summation. In coherent mode (`C`), the complex acoustic pressure at each receiver is computed by summing contributions from all beams with their relative phases preserved:
 
 \begin{equation}
 p(\mathbf{r}) = \sum_{j=1}^{N} A_j e^{i\phi_j},
 \end{equation}
 
-where $A_j$ and $\phi_j$ are the amplitude and phase of the $j$-th beam contribution, and $N$ is the total number of beams reaching the receiver. This produces interference patterns including constructive and destructive interference, which are physically realistic for coherent sources and receivers at fixed positions.
+where $A_j$ and $\phi_j$ are the amplitude and phase of the $j$-th beam contribution, and $N$ is the total number of beams reaching the receiver. This will produce interference patterns including constructive and destructive interference, which are physically realistic for coherent sources and receivers at fixed positions.
 
 In incoherent mode (`I`), only intensities are summed, discarding phase information:
 
@@ -147,7 +147,7 @@ In incoherent mode (`I`), only intensities are summed, discarding phase informat
 I(\mathbf{r}) = \sum_{j=1}^{N} |A_j|^2.
 \end{equation}
 
-This is appropriate when modeling averaged fields over many source or receiver positions, or when the acoustic field has significant temporal or spatial incoherence. Incoherent summation produces smoother transmission loss patterns without the fine interference structure of coherent calculations. The simple ray-based methods presented in earlier subsections implicitly perform an operation similar to incoherent summation by counting ray arrivals without tracking phase.
+This approach is appropriate when modeling averaged fields over many source or receiver positions, or when the acoustic field has significant temporal or spatial incoherence. Incoherent summation produces smoother transmission loss patterns without the fine interference structure of coherent calculations. The simple ray-based methods presented in earlier subsections implicitly perform an operation similar to incoherent summation by counting ray arrivals without tracking phase.
 
 
 \begin{thebibliography}{10}
