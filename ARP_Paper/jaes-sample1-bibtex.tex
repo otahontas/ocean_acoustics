@@ -102,6 +102,44 @@ where $\theta$ is the ray angle and $c$ is the local speed of sound \cite{Lurton
 \subsection{Discretized C-linear}
 \subsection{Bellhop}
 
+Bellhop is a beam tracing program developed by Michael Porter as part of the Acoustics Toolbox \cite{Porter}. Unlike simple ray-based methods that treat acoustic paths as infinitesimally thin lines, Bellhop employs Gaussian beam tracing, where each ray has a finite width. This approach reduces artifacts near caustics and boundaries.
+
+The Gaussian beam formulation extends traditional ray theory by associating a complex beam width parameter with each ray. As the beam propagates through the medium, both its center trajectory and width evolve according to coupled differential equations. For a beam with width parameter $q(s)$, the evolution along arc length $s$ is governed by
+
+\begin{equation}
+\frac{dq}{ds} = \frac{c^2}{q} \nabla^2 c,
+\end{equation}
+
+where $c$ is the local speed of sound and $\nabla^2 c$ represents the second derivative of the sound speed profile. This allows Bellhop to handle regions where rays converge (caustics) without the singularities that occur in pure ray methods. At each receiver location, contributions from all beams are summed with appropriate amplitude and phase corrections based on beam geometry.
+
+Bellhop's numerical integration uses an adaptive step size algorithm that automatically adjusts to ensure ray paths accurately land on discontinuities in the sound speed profile, such as at SSP points and boundary segments. This ensures proper handling of refraction at layer interfaces and specular reflections at boundaries. The integrator follows the standard ray equations derived from Snell's law in stratified media, but with additional terms to track beam spreading and curvature.
+
+\subsubsection{Configuration via .env Files}
+
+Bellhop reads its environmental parameters from text files with the `.env` extension, following a standardized format used throughout the Acoustics Toolbox. These files specify the complete acoustic environment including the sound speed profile, boundary conditions, source and receiver positions, and computational parameters.
+
+The boundary specification allows three main types: Vacuum boundaries (`V`) produce perfect reflection with no transmission; Rigid boundaries (`R`) enforce zero normal particle velocity; and Acoustic halfspace boundaries (`A`) model the seabed as a fluid halfspace with specified sound speed, density, and attenuation. For the acoustic halfspace option, parameters are given as depth, sound speed, shear speed (zero for fluid), density, compressional attenuation, and shear attenuation. These boundary models range from simple geometric reflection to frequency-dependent bottom interaction.
+
+Bellhop supports multiple run types specified in the `.env` file: Ray tracing (`R`) outputs the full geometric paths of all launched rays; Eigenray (`E`) identifies only those rays connecting source to receiver; Coherent transmission loss (`C`) computes the complex pressure field by summing beam contributions with phase information; Incoherent transmission loss (`I`) sums intensities without phase; and Semicoherent (`S`) uses a hybrid approach. The choice of run type determines both the computational cost and the physical interpretation of results.
+
+\subsubsection{Coherent and Incoherent Summation}
+
+Bellhop can perform both coherent and incoherent field summation. In coherent mode (`C`), Bellhop computes the complex acoustic pressure at each receiver by summing contributions from all beams with their relative phases preserved:
+
+\begin{equation}
+p(\mathbf{r}) = \sum_{j=1}^{N} A_j e^{i\phi_j},
+\end{equation}
+
+where $A_j$ and $\phi_j$ are the amplitude and phase of the $j$-th beam contribution, and $N$ is the total number of beams reaching the receiver. This produces interference patterns including constructive and destructive interference, which are physically realistic for coherent sources and receivers at fixed positions.
+
+In incoherent mode (`I`), only intensities are summed, discarding phase information:
+
+\begin{equation}
+I(\mathbf{r}) = \sum_{j=1}^{N} |A_j|^2.
+\end{equation}
+
+This is appropriate when modeling averaged fields over many source or receiver positions, or when the acoustic field has significant temporal or spatial incoherence. Incoherent summation produces smoother transmission loss patterns without the fine interference structure of coherent calculations. The simple ray-based methods presented in earlier subsections implicitly perform an operation similar to incoherent summation by counting ray arrivals without tracking phase.
+
 
 \begin{thebibliography}{10}
 
