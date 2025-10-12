@@ -18,6 +18,7 @@ Ocean acoustics ray tracing comparison: custom c-linear implementation vs Bellho
   - `plot_results.m`: Plotting logic
 - `utils/`: Folder for utility functions
   - `read_scenario.m`: Reads the `scenario.env` file
+  - `generate_munk_env.m`: Generates Bellhop .env files with Munk profile
 - `at/`: Acoustics Toolbox
 
 ## Architecture
