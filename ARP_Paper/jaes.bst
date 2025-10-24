@@ -430,12 +430,6 @@ INTEGERS { nameptr namesleft numnames }
 
 STRINGS  { bibinfo}
 
-FUNCTION {and}
-{ ’skip$
-    { pop$ #0 }
-    if$
-}
-
 FUNCTION {format.names}
 { 'bibinfo :=
   duplicate$ empty$ 'skip$ {
