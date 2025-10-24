@@ -1193,8 +1193,8 @@
 \def\evenfolio{{\foliofont\thepage}}
 %
 \def\ps@headings{%
-    \def\@evenhead{{\rhfont\leftmark}\hfil{\rhfont DRAFT}}%
-    \def\@oddhead{{\rhfont DRAFT}\hfil{\rhfont\rightmark}}%
+    \def\@evenhead{{\rhfont\leftmark}\hfil{\rhfont}}%
+    \def\@oddhead{{\rhfont}\hfil{\rhfont\rightmark}}%
     \def\@evenfoot{\hbox to \textwidth{\rhfont\evenfolio\hfill \@jname, \@jyear\ \@jmonth}}%
     \def\@oddfoot{\hbox to \textwidth{\rhfont \@jname, \@jyear\ \@jmonth\hfill\oddfolio}}%
     \let\@mkboth\markboth
@@ -1216,8 +1216,8 @@
 \def\bottomfoot#1{\gdef\bottom@foot{#1}}
 %
 \def\ps@plain{\let\@mkboth\@gobbletwo%
-       \def\@evenhead{\hbox to \textwidth{\hfill\rhfont DRAFT}}%
-       \def\@oddhead{\hbox to \textwidth{\rhfont DRAFT\hfill}}%
+       \def\@evenhead{\hbox to \textwidth{\hfill\rhfont}}%
+       \def\@oddhead{\hbox to \textwidth{\rhfont\hfill}}%
        \def\@evenfoot{\hbox to \textwidth{\rhfont\thepage\hfill \@jname, \@jyear\ \@jmonth}}%
        \def\@oddfoot{\hbox to \textwidth{\rhfont \@jname, \@jyear\ \@jmonth\hfill\thepage}}%
 }%
