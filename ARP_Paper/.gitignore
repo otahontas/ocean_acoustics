@@ -14,7 +14,7 @@
 *.ps
 
 # Generated PDFs (keep reference docs like jaes-guide.pdf)
-jaes-sample1-bibtex.pdf
+main.pdf
 
 # BibTeX
 *.bib.bak

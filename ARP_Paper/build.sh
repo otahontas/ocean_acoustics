@@ -1,7 +1,7 @@
 #!/bin/bash
 # Compile LaTeX document with BibTeX
 
-FILE="jaes-sample1-bibtex"
+FILE="main"
 
 echo "==> Compiling ${FILE}.tex"
 echo
