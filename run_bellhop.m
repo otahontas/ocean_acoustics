@@ -20,6 +20,8 @@ cd('..');
 % Plot rays
 fprintf('Plotting rays...\n');
 figure;
+set(gcf, 'Color', 'white');
+set(gca, 'Color', 'white');
 plotray('at/scenario.ray');
 saveas(gcf, 'bellhop_output.png');
 fprintf('Saved: bellhop_output.png\n');
