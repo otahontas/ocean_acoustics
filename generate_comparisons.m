@@ -22,15 +22,14 @@ close all; % close model plots
 % Run ray_parameter
 fprintf('  Running ray_parameter...\n');
 run('ray_parameter.m');
-% Extract data (need to modify ray_parameter to return workspace vars)
-% For now, assume we can access eigenrays, eigenray_times, etc.
-params_ray.source_depth = 1000;
-params_ray.receiver_depth = 1000;
-params_ray.receiver_rng = 100000;
-params_ray.freq = 50;
+% Extract data from workspace variables
+params_ray.source_depth = source.depth;
+params_ray.receiver_depth = receiver.depth;
+params_ray.receiver_rng = receiver.rng;
+params_ray.freq = freq;
 data_rayparam = extract_eigenrays_rayparam(eigenrays, eigenray_times, ...
     eigenray_absorption, eigenray_reflection, eigenray_geom_spreading, ...
-    eigenray_arrival_angle, source_launch_angles, params_ray);
+    eigenray_arrival_angle, eigenray_indices, source.launch_angles, params_ray);
 close all;
 
 % Run Bellhop
