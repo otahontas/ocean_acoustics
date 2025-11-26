@@ -2,6 +2,9 @@
 % Generates all comparison plots and metrics for paper
 clear; close all; clc;
 
+% Add utils to path
+addpath('utils');
+
 fprintf('=== OCEAN ACOUSTICS MODEL COMPARISON ===\n\n');
 
 %% Step 1: Run all models and extract data
