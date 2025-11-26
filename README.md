@@ -32,6 +32,25 @@ Outputs: `clinear_output.png`, `bellhop_output.png`
 - `utils/` - Folder for utility functions
 - `at/` - Acoustics Toolbox (Bellhop and other models, installed via script)
 
+## Model Comparison
+
+To generate comparison plots and metrics:
+
+```bash
+matlab -batch "generate_comparisons"
+```
+
+This will:
+1. Run all three models (clinear_curvature, ray_parameter, Bellhop)
+2. Extract and normalize eigenray data
+3. Compute pairwise comparison metrics
+4. Generate publication-quality figures in `figures/`
+5. Export LaTeX table for paper
+
+### Understanding Differences
+
+See `docs/model_differences_explained.md` for detailed explanation of why models produce different results and what level of agreement to expect.
+
 ## Method
 
 C-linear ray tracing (Jensen p.209-211):
