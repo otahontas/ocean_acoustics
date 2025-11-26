@@ -1,6 +1,6 @@
 function eig_data = extract_eigenrays_rayparam(eigenrays, eigenray_times, ...
     eigenray_absorption, eigenray_reflection, eigenray_geom_spreading, ...
-    eigenray_arrival_angle, source_angles, params)
+    eigenray_arrival_angle, eigenray_indices, source_launch_angles, params)
     % Extract eigenray data from ray_parameter output
 
     eig_data = EigenrayData('ray_parameter');
@@ -9,7 +9,8 @@ function eig_data = extract_eigenrays_rayparam(eigenrays, eigenray_times, ...
     eig_data.n_eigenrays = n;
 
     % Direct assignment (already in arrays)
-    eig_data.launch_angles = source_angles; % need to pass this in
+    % Extract launch angles from indices
+    eig_data.launch_angles = rad2deg(source_launch_angles(eigenray_indices));
     eig_data.arrival_times = eigenray_times';
     eig_data.arrival_angles = eigenray_arrival_angle';
 
