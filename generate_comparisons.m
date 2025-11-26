@@ -35,8 +35,13 @@ close all;
 % Run Bellhop
 fprintf('  Running Bellhop...\n');
 % Bellhop must be run separately via shell
-% For now, assume output files exist
-data_bellhop = extract_eigenrays_bellhop('scenario.env', 'scenario');
+% For now, skip if output files don't exist
+if exist('scenario.ray', 'file')
+    data_bellhop = extract_eigenrays_bellhop('scenario.env', 'scenario');
+else
+    fprintf('  Bellhop output not found, skipping...\n');
+    data_bellhop = []; % empty for now
+end
 
 fprintf('Step 1 complete.\n\n');
 
@@ -48,13 +53,16 @@ fprintf('Step 2: Computing pairwise comparisons...\n');
 comp_clin_ray = compare_eigenrays(data_clinear, data_rayparam, ...
     'time_tol', 0.5, 'require_bounce_match', true);
 
-% Clinear vs Bellhop
-comp_clin_bell = compare_eigenrays(data_clinear, data_bellhop, ...
-    'time_tol', 0.5, 'require_bounce_match', true);
-
-% Ray Parameter vs Bellhop
-comp_ray_bell = compare_eigenrays(data_rayparam, data_bellhop, ...
-    'time_tol', 0.5, 'require_bounce_match', true);
+% Clinear vs Bellhop (if available)
+if ~isempty(data_bellhop)
+    comp_clin_bell = compare_eigenrays(data_clinear, data_bellhop, ...
+        'time_tol', 0.5, 'require_bounce_match', true);
+    comp_ray_bell = compare_eigenrays(data_rayparam, data_bellhop, ...
+        'time_tol', 0.5, 'require_bounce_match', true);
+else
+    comp_clin_bell = [];
+    comp_ray_bell = [];
+end
 
 fprintf('Step 2 complete.\n\n');
 
@@ -62,20 +70,24 @@ fprintf('Step 2 complete.\n\n');
 
 fprintf('Step 3: Generating comparison plots...\n');
 
-% Ray fan comparison
-fig1 = plot_ray_fan_comparison(data_clinear, data_rayparam, data_bellhop);
-saveas(fig1, 'figures/ray_fan_comparison.png');
-fprintf('  Saved: figures/ray_fan_comparison.png\n');
+% Ray fan comparison (skip if no Bellhop)
+if ~isempty(data_bellhop)
+    fig1 = plot_ray_fan_comparison(data_clinear, data_rayparam, data_bellhop);
+    saveas(fig1, 'figures/ray_fan_comparison.png');
+    fprintf('  Saved: figures/ray_fan_comparison.png\n');
 
-% Impulse response comparison
-fig2 = plot_impulse_response_comparison(data_clinear, data_rayparam, data_bellhop);
-saveas(fig2, 'figures/impulse_response_comparison.png');
-fprintf('  Saved: figures/impulse_response_comparison.png\n');
+    fig2 = plot_impulse_response_comparison(data_clinear, data_rayparam, data_bellhop);
+    saveas(fig2, 'figures/impulse_response_comparison.png');
+    fprintf('  Saved: figures/impulse_response_comparison.png\n');
 
-% Eigenray table
-fig3 = plot_eigenray_table(comp_clin_ray, comp_clin_bell);
-saveas(fig3, 'figures/eigenray_comparison_table.png');
-fprintf('  Saved: figures/eigenray_comparison_table.png\n');
+    fig3 = plot_eigenray_table(comp_clin_ray, comp_clin_bell);
+    saveas(fig3, 'figures/eigenray_comparison_table.png');
+    fprintf('  Saved: figures/eigenray_comparison_table.png\n');
+else
+    % Just compare the two custom models
+    fprintf('  Generating 2-model comparison plots...\n');
+    % For now, skip visualization until Bellhop is available
+end
 
 fprintf('Step 3 complete.\n\n');
 
