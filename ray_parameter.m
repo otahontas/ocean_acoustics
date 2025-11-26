@@ -1,7 +1,7 @@
-function Full_model()
-    close all; clear; clc;
+%% Ray Parameter Model
+close all; clear; clc;
 
-    use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
+use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
     % true  = A = 1/(4πR)
     % false = Jensen Jacobian model (complex spreading)
 
@@ -238,8 +238,6 @@ function Full_model()
     title('Impulse Response at Receiver (dB scale)');
     grid on;
     ylim([Amax-80 Amax+3]);   % 80 dB dynamic range
-
-end
 
 
 %% ======================================================
