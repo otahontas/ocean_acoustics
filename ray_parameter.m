@@ -389,8 +389,8 @@ function R = bottom_reflection(theta_i, depth)
     % Water
     rho1 = 1000;   c1 = sound_speed(depth);
 
-    % Sandy seabed
-    rho2 = 1800;   c2 = 1700; 
+    % Sandy seabed (Jensen Table 1.3)
+    rho2 = 1900;   c2 = 1650; 
 
     Z1 = rho1 * c1;
     Z2 = rho2 * c2;

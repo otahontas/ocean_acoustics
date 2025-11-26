@@ -14,12 +14,12 @@ r_rec = 100000; % receiver range (m)
 z_rec = 1000;  % receiver depth (m)
 
 % Ray fan
-angles_deg = linspace(-25,25,10001);
+angles_deg = linspace(-30,30,10001);
 angles = deg2rad(angles_deg);
-depth_tol = 5; % eigenray hit tolerance (m)
+depth_tol = 10; % eigenray hit tolerance (m)
 
 % Numerical stepping
-ds = 30.0; % arc-length step (m)
+ds = 5.0; % arc-length step (m) - for final paper results
 max_steps = 5e7;
 max_range = r_rec * 1.2;
 
@@ -29,7 +29,7 @@ z_max = 8000; % bottom (m)
 
 % Transfer loss
 A0 = 1.0; % initial amplitude at source
-f = 100; % frequency of source signal (for absorption coefficient calculation)
+f = 50; % frequency of source signal (Hz) - low freq for long-range propagation
 alpha_loss = 1e-3; % loss factor(1/m) for transfer loss 
 
 function alpha_loss = thorp_absorption(f_kHz) %% result is in dB/km
@@ -72,6 +72,10 @@ for ia = 1:length(angles)
     step = 0;
     found = false;
 
+    % Bounce counting
+    n_surface_bounces = 0;
+    n_bottom_bounces = 0;
+
     % Track last two finite indices to avoid find()
     last_finite_idx = 1;
     second_last_finite_idx = 0;
@@ -98,10 +102,12 @@ for ia = 1:length(angles)
             if z_new < z_min  % surface hit
                 alpha = (z_min - z) / (z_new - z);
                 z_hit = z_min;
+                n_surface_bounces = n_surface_bounces + 1;
             else % bottom hit
                 alpha = (z_max - z) / (z_new - z);
                 z_hit = z_max;
-                c_at_hit = c_of_z(z_hit); 
+                n_bottom_bounces = n_bottom_bounces + 1;
+                c_at_hit = c_of_z(z_hit);
                 A_reflection = A_reflection * bottom_reflection(theta_new, c_at_hit);
             end
             alpha = max(0,min(1,alpha));
@@ -184,16 +190,21 @@ for ia = 1:length(angles)
                     ABSORPTION_abs_dB = alpha_dB_per_km * path_len_km;
                     A_abs = 10^(-ABSORPTION_abs_dB / 20);
                     
-                    % TRANSMISSION LOSS WITH 1 KM SPHERICAL ATTENUATION, REST
-                    % CYLINDRICAL
-                    if r_rec > 1000
-                        TLdB = 20*log(1000) + 20*log(path_len-1000);
-                    else 
-                        TLdB = 20 * log(path_len);
+                    % GEOMETRICAL SPREADING LOSS
+                    % Spherical spreading up to transition range r_t = water depth
+                    % Then cylindrical spreading beyond r_t (Jensen Ch. 1)
+                    r_t = 8000; % transition range = water depth (m)
+                    if path_len < r_t
+                        TLdB = 20*log10(path_len); % spherical: TL = 20log(r)
+                    else
+                        % spherical up to r_t, then cylindrical
+                        TLdB = 20*log10(r_t) + 10*log10(path_len/r_t); % = 10log(r_t) + 10log(r)
                     end
                     TL_abs = 10^(-TLdB / 20);
                     entry.path_len = path_len;
-                    entry.A_at_r = A0 * A_abs * TL_abs * A_reflection; 
+                    entry.A_at_r = A0 * A_abs * TL_abs * A_reflection;
+                    entry.n_surface = n_surface_bounces;
+                    entry.n_bottom = n_bottom_bounces;
                     eigenrays{end+1} = entry;
                     found = true;
                 end
@@ -206,6 +217,16 @@ for ia = 1:length(angles)
         end
     end
 end
+
+%% ----------------- Print eigenray diagnostics -----------------
+fprintf('\n=== EIGENRAY DIAGNOSTICS ===\n');
+fprintf('Found %d eigenrays:\n', length(eigenrays));
+for k = 1:length(eigenrays)
+    er = eigenrays{k};
+    fprintf('Eigenray %d: Launch angle = %.2f°, Bounces: %dB/%dS, Time = %.2f s, Amp = %.2f dB\n', ...
+            k, rad2deg(er.theta0), er.n_bottom, er.n_surface, er.t_at_r, 20*log10(abs(er.A_at_r)));
+end
+fprintf('============================\n\n');
 
 %% ----------------- Plotting (fan + eigenrays) -----------------
 figure('Color','w','Position',[200 200 1000 600]); hold on; box on;
@@ -295,7 +316,7 @@ if ~isempty(eigenrays)
         pathlens(k) = eigenrays{k}.path_len;
     end
     
-    valid = isfinite(times) & isfinite(amps);
+    valid = isfinite(times) & isfinite(amps) & (amps > 0);
     times = times(valid);
     amps  = amps(valid);
     angles0 = angles0(valid);
@@ -304,21 +325,21 @@ if ~isempty(eigenrays)
     amps = amps(sortIdx);
     angles0 = angles0(sortIdx);
 
+    % Convert amplitude to dB
+    amps_dB = 20*log10(abs(amps));
+
     figure('Color','w','Position',[300 300 750 450]); hold on; box on;
+    Amax = max(amps_dB);
     for k = 1:length(times)
-        line([times(k) times(k)], [0 amps(k)], 'LineWidth',2);
-        plot(times(k), amps(k), 'ko', 'MarkerFaceColor','k');
-        text(times(k), amps(k), sprintf('  %.1f°', angles0(k)), 'FontSize',8);
+        line([times(k) times(k)], [Amax-80 amps_dB(k)], 'LineWidth',2, 'Color','b');
+        plot(times(k), amps_dB(k), 'ko', 'MarkerFaceColor','k', 'MarkerSize',6);
     end
     xlabel('Arrival time (s)');
-    ylabel('Amplitude (linear units)');
-    title('Eigenray Arrival Time vs Amplitude');
-    xlim([min(times)-0.05*range(times), max(times)+0.05*range(times)]);
-    ymax = max(amps);
-    if ~isfinite(ymax) || ymax <= 0
-        ymax = eps;   % fallback tiny positive value
-    end
-    ylim([0 ymax*1.15]);
+    ylabel('Amplitude (dB)');
+    title('Eigenray Arrival Time vs Amplitude (Impulse Response)');
+    time_range = max(times) - min(times);
+    xlim([min(times)-0.05*time_range, max(times)+0.05*time_range]);
+    ylim([Amax-80 Amax+5]); % 80 dB dynamic range
     grid on;
 else
     disp('No eigenrays found to plot arrival times/amplitudes.');
@@ -326,8 +347,8 @@ end
 
 function R = bottom_reflection(theta_i, c1)
     rho1 = 1000;
-    % Sandy seabed
-    rho2 = 1800;   c2 = 1700; 
+    % Sandy seabed (Jensen Table 1.3)
+    rho2 = 1900;   c2 = 1650; 
     Z1 = rho1 * c1;
     Z2 = rho2 * c2;
     sin_theta_t = (c1/c2) * sin(theta_i);
