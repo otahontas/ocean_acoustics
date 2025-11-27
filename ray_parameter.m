@@ -237,6 +237,8 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
     ylabel('Depth (m)');
     title('Ray Tracing with Simple or Jacobian Geometrical Spreading');
     grid on;
+    saveas(gcf, 'figures/ray_parameter_rays.png');
+    fprintf('Saved: figures/ray_parameter_rays.png\n');
 
     % ===============================
     %  IMPULSE RESPONSE —
@@ -268,6 +270,8 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
     title('Impulse Response at Receiver (dB scale)');
     grid on;
     ylim([Amax-80 Amax+3]);   % 80 dB dynamic range
+    saveas(gcf, 'figures/ray_parameter_arrivals.png');
+    fprintf('Saved: figures/ray_parameter_arrivals.png\n');
 
 
 %% ======================================================

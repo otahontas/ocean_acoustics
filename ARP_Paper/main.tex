@@ -6,6 +6,7 @@
 
 \usepackage{amsmath}\setlength{\mathindent}{10pt}
 \usepackage{bm}
+
 % Use standard mathcal instead of pazocal to avoid font issues
 \newcommand{\pazocal}{\mathcal}
 
@@ -27,7 +28,8 @@ AND \author{ATTE STENQVIST}
 
 %Abstract
 %An informative and self-contained abstract of 100 to 200 words must be provided. The abstract should mention the motivation, problem statement, approach, results, and implications of the work, usually with one or two sentences each. It is recommended that the abstract be written in a single paragraph without citing any references. The Journal of the Audio Engineering Society is a modern scientific journal supporting online publishing with colors and a graphical abstract. It is a hybrid journal publishing both Open Access and traditional papers, the latter being only available for subscribers, such as AES members. If a paper published in the Journal of the Audio Engineering Society has been made Open Access, it will have the OA logo next to it and will be freely downloadable from the AES E-Library by anyone, even if they are not an AES member or E-Library subscriber. This example abstract contains 149 words.
-\abstract{%
+\abstract{
+\textbf{Abstract will be written here.}
 }
 \maketitle
 %Head 1
@@ -39,7 +41,7 @@ AND \author{ATTE STENQVIST}
 
 % \subsection{Literature review}
 % \begin{itemize}
-%     \item SSP equation more precise/different conditions Atte 
+%     \item SSP equation more precise/different conditions Atte
 %     \item Ray reflection on the seabed H
 %     \item Transfer loss H
 %     \item Impact of ray propagation on animals? Otto
@@ -60,10 +62,18 @@ AND \author{ATTE STENQVIST}
 
 % \newpage
 % \clearpage
+\setcounter{section}{0} % start first section at 1 not 0
+
 \section{INTRODUCTION}
+Sound propagation in the ocean plays a central role in underwater positioning, navigation, timing and communication (PTNC) systems, which are applied in a wide range of fields from national security and exploration of marine resources to the study of the natural acoustic environment \cite{Huang}, \cite{Etter}. However, accurately predicting underwater sound propagation remains a complex task due to environmental variability, ray bending, boundary interactions, scattering and different attenuation mechanisms.
+
+To solve this, different computational models have been developed. Ray-based methods, that model the sound waves as discrete geometric paths are widely used due to computational efficiency. One particularly successful model, that uses a variant of ray-tracing called gaussian beam tracing is the \textit{Bellhop} model, which is a state-of-the-art model used in the field.
+
+In this work, we created our own implementations of simple ray-based models and compared them to the advanced Bellhop model. In our implementations we tried different approaches and techniques, for example, geometric and c-linear ray tracing methods. In the comparison we focused on ray path accuracy and impulse response at the receiver (i.e time and amplitude calculation of sound paths). The work was limited to a deep-water environment with long range (100km) between source and receiver.
+\section{BACKGROUND}
 
 \subsection{Sound propagation in the ocean}
-In ocean acoustics, sound is propagated using the ocean as a waveguide, limited between the surface and the seafloor. Within this waveguide, speed of sound varies due to density, which in the ocean is related to static pressure, salinity and temperature. Many different empirical formulas for calculating the speed of sound have been proposed \cite{Huang} with varying complexities and application ranges, but for most cases the simplified Medwin empirical formula can be used as a an approximation \cite{Jensen}, \cite{Lurton}. In the Medwin formula, speed of sound ($c$, in $m/s$) is calculated as 
+In ocean acoustics, sound is propagated using the ocean as a waveguide, limited between the surface and the seafloor. Within this waveguide, speed of sound varies due to density, which in the ocean is related to static pressure, salinity and temperature. Many different empirical formulas for calculating the speed of sound have been proposed \cite{Huang} with varying complexities and application ranges, but for most cases the simplified Medwin empirical formula can be used as a an approximation \cite{Jensen}, \cite{Lurton}. In the Medwin formula, speed of sound ($c$, in $m/s$) is calculated as
 
 \begin{equation}
 \begin{split}
@@ -72,11 +82,11 @@ c &= 1449.2 + 4.6T - 0.055T^2 + 0.00029T^3 \\
 \end{split}
 \label{eq:speedofsound}
 \end{equation}
-where $T$ is the temperature, in °C; $S$ is the salinity and $z$ is the depth, in $m$. 
+where $T$ is the temperature, in °C; $S$ is the salinity and $z$ is the depth, in $m$.
 
 Due to the variety of temperature, salinity and depth in the oceans around the world, underwater sound propagation is strictly dependent on the \textit{sound speed profile} (SSP) that is used. A typical SSP in deep non-polar oceans has an unstable mixed layer near the surface and a stable, linearly increasing sound speed profile in the deep isothermal layer near the seafloor \cite{Jensen}. Between these regions exists the \textit{deep sound channel}, where the speed of sound reaches a minimum. The \textit{Munk profile}, is an idealized SSP showcased in Fig. \ref{fig:munk}, which contains many features of deep-water propagation and is often used for demonstrations of deep-water propagation.
 
-For determining the sound propagation paths, speed of sound is treated in the same way the index of refraction is treated in optics. The refraction of the propagation direction changes as the speed of sound changes in accordance with \textit{Snell's law}, 
+For determining the sound propagation paths, speed of sound is treated in the same way the index of refraction is treated in optics. The refraction of the propagation direction changes as the speed of sound changes in accordance with \textit{Snell's law},
 
 \begin{equation}
 \frac{\cos{\theta}}{c}= p,
@@ -105,7 +115,7 @@ At the surface and at the seabed of the ocean, the waves will experience reflect
 When the two media have similar acoustic impedance ($\pazocal{Z}_1 \approx \pazocal{Z}_2$), the reflection coefficient is almost zero. Conversely, when medium 2 has a much larger impedance than medium 1, the reflection coefficient is close to 1, meaning that most of the energy is reflected.
 
 \subsubsection{Surface reflections}
-At the interface, the difference in acoustic impedance between air and water is so large that almost total reflection occurs ($\pazocal{R} \approx 1$). The surface can therefore be approximated as a perfectly reflecting boundary. However, this assumption breaks down in agitated conditions when wind and waves generate bubbles that scatter and absorb acoustic energy, leading to non negligible reflection losses \cite{Jensen}. 
+At the interface, the difference in acoustic impedance between air and water is so large that almost total reflection occurs ($\pazocal{R} \approx 1$). The surface can therefore be approximated as a perfectly reflecting boundary. However, this assumption breaks down in agitated conditions when wind and waves generate bubbles that scatter and absorb acoustic energy, leading to non negligible reflection losses \cite{Jensen}.
 
 In deep water, this bending traps the acoustic energy, hence creating ray paths that travel long distances without ever touching the bottom and that only reflect from the surface. Such typical deep-water environments, where these effects are prominent, occur in all oceans at depths exceeding about 2000m \cite{Jensen}. In this case, sound propagation often occurs without significant bottom interaction, dominated instead by refraction and surface reflection.
 
@@ -115,16 +125,31 @@ Reflection from the ocean bottom is far more complex. Unlike the nearly perfect 
 
 Layered sediments further complicate this behavior, producing frequency- and angle-dependent reflection losses due to interference within the layers. Depending on the incident angle, thin or half-wavelength layers can be acoustically transparent, while quarter-wavelength layers can act as anti-reflecting coatings \cite{Jensen}.
 
-\subsection{Transfer loss}
-As waves travel through the water, their amplitude is progressively attenuated by two important effects: absorption and scattering. This attenuation is usually modeled by an exponential decay law with distance $x$:
+\subsection{Transmission loss}
+As sound waves travel through the water, their amplitude is progressively attenuated by various loss mechanisms contributing to the total transmission loss due to the medium. The transmission loss due to the seawater can be divided into two parts: geometrical spreading loss and frequency-dependent absorption loss.
+
+Geometrical spreading loss measures attenuation due to the signal spreading outwards from the source, assuming the medium to be lossless \cite{Jensen}. This spreading can in near field be assumed to be spherical, and is calculated as
+\begin{equation}
+    TL_{spherical}=20\log r
+\end{equation}
+where $r$ is the horizontal range in meters. Due to the boundaries of the ocean surface and seafloor, the attenuation in far field can be expressed as  cylindrical spreading loss
+\begin{equation}
+    TL_{cylindrical}=10\log r.
+\end{equation}
+For a point source, we can make the near field assumption when the distance is less than the depth $(r<z)$ followed by a transition region after which cylindrical spreading is applicable at longer ranges $(r\gg z)$ \cite{Jensen}.
+
+In contrast, absorption loss measures how much of the acoustic energy is absorbed by the medium and turned into heat. This is usually modeled by an exponential decay law with distance $x$:
 \begin{equation}
     A = A_0 \exp (-\alpha x)
     \label{eq:attenuationdecay}
 \end{equation}
-where $A_0$ is the rms amplitude at $x=0$ and $\alpha$ is the attenuation factor.
-The coefficient $\alpha$ has some dependence on frequency, temperature, pressure, salinity, and acidity. However, a simplified expression depending only on frequency is considered sufficiently accurate for most problems in ocean acoustics \cite{Jensen, urick1979}: 
+where $A_0$ is the rms amplitude at $x=0$ and $\alpha$ is the attenuation factor. The coefficient $\alpha$ has some dependence on frequency, temperature, pressure, salinity, and acidity. However, a simplified expression depending only on frequency is considered sufficiently accurate for most problems in ocean acoustics \cite{Jensen, urick1979}:
 \begin{equation}
-    \alpha = \frac{1}{8.69} \big[ 3.3 \cdot 10^{-3} + \frac{0.11f^2}{1+f^2} + \frac{44f^2}{4100+f^2} + 3\cdot 10^{-4} f^2\big]
+    \begin{split}
+        \alpha &= \frac{1}{8.69} \big[ 3.3 \cdot 10^{-3} + \frac{0.11f^2}
+        {1+f^2} + \frac{44f^2}{4100+f^2} \\
+        &+ \quad 3\cdot 10^{-4} f^2\big]
+    \end{split}
     \label{eq:attenuationfrequency}
 \end{equation}
 where $f$ is expressed in kHz and $\alpha$ in dB/km. Equation \ref{eq:attenuationfrequency} shows attenuation increases with frequency, such that low-frequency waves are only mildly attenuated, making them highly effective for long-range underwater communication compared to electromagnetic waves. For example, a 100Hz acoustic signal would need to travel around 2200 km to be attenuated by -10dB.
@@ -156,7 +181,7 @@ In summary, each category of sound propagation model offers a different balance 
 Three different underwater sound propagation models are compared in this work. The models \textit{Geometric ray tracing} (described in Section 2.1) and \textit{c-linear} (described in Section 2.2) are simple ray-based methods based on techniques represented in \cite{Jensen}. The \textit{Bellhop} model described in Section 2.3 is a more advanced beam tracing program using open source code from \cite{Porter}.
 
 \subsection{Geometric Ray Tracing}
-The underwater acoustic propagation is first modeled using geometric ray tracing, governed by Snell's law. This simple method does not solve the full acoustic wave equation, but approximates the trajectories of sound waves as they travel through the horizontally stratified water environment. 
+The underwater acoustic propagation is first modeled using geometric ray tracing, governed by Snell's law. This simple method does not solve the full acoustic wave equation, but approximates the trajectories of sound waves as they travel through the horizontally stratified water environment.
 
 The environment is represented by a one-dimensional sound speed profile $c(z)$ that varies with depth $z$.
 A simple Munk-like profile \cite{Porter} is employed to approximate realistic ocean conditions:
@@ -165,7 +190,7 @@ A simple Munk-like profile \cite{Porter} is employed to approximate realistic oc
     \quad \text{where} \quad
     \bar{z} = \frac{2(z - z_0)}{z_0}.
 \end{equation}
-where $c_0 = 1500~\text{m/s}$ is the reference sound speed, $z_0 = 1300~\text{m}$ is the reference depth (the sound channel axis), and $\epsilon = 0.00737$ is a non-dimensional perturbation parameter controlling the strength of the sound speed variation. 
+where $c_0 = 1500~\text{m/s}$ is the reference sound speed, $z_0 = 1300~\text{m}$ is the reference depth (the sound channel axis), and $\epsilon = 0.00737$ is a non-dimensional perturbation parameter controlling the strength of the sound speed variation.
 
 The trajectory of the ray is governed by the differential equations:
 \begin{equation}
@@ -173,7 +198,7 @@ The trajectory of the ray is governed by the differential equations:
     \frac{dz}{ds} = \sin\theta,
     \label{eq: dsRelations}
 \end{equation}
-where $s$ is the arclength along the ray. The local angle $\theta$ can be recovered from Snell’s law:
+where $s$ is the arclength along the ray. The local angle $\theta$ can be recovered from Snell's law:
 \begin{equation}
     \theta(z) = \arccos\!\left(p\,c(z)\right),
 \label{eq:arccosSnell}
@@ -187,7 +212,7 @@ The ray paths were computed by discretizing the arclength $s$ into small steps o
     x_{n+1} &= x_n + \Delta s \cos\theta_n, \\
     z_{n+1} &= z_n + \Delta s \sin\theta_n,
 \end{align}
-where $\theta_n$ is evaluated at the current depth using Snell’s law. 
+where $\theta_n$ is evaluated at the current depth using Snell's law.
 
 At each step, reflections from the sea surface and bottom boundaries were handled by reversing the vertical direction of propagation:
 \begin{equation}
@@ -198,13 +223,13 @@ whenever the ray reached $z = 0$ (surface) or $z = z_{\text{max}}$ (bottom).
 
 \subsubsection{Source and Receiver Configuration}
 
-A point source was positioned at depth $z_s = 1000~\text{m}$, and multiple rays were launched at different initial grazing angles $\theta_0$ spanning from $-25^\circ$ to $5^\circ$. 
-Each ray was propagated through the water medium until it reached the maximum range or depth limits. 
-A receiver was placed at $z_r = 1000~\text{m}$ and $x_r = 100~\text{km}$. 
+A point source was positioned at depth $z_s = 1000~\text{m}$, and multiple rays were launched at different initial grazing angles $\theta_0$ spanning from $-25^\circ$ to $5^\circ$.
+Each ray was propagated through the water medium until it reached the maximum range or depth limits.
+A receiver was placed at $z_r = 1000~\text{m}$ and $x_r = 100~\text{km}$.
 Rays whose terminal positions fell within a prescribed tolerance of the receiver depth were identified as eigenrays connecting the source and receiver.
 
 \subsection{Cell method: \textit{c}-linear}
-Cell methods refer to the practice of calculating rays by dividing the medium into smaller discretized elements with simple properties. This can be done for range-dependent mediums by dividing the medium into triangles \cite{Jensen}. A simple implementation of the cell method \textit{c}-linear in a range-independent medium is presented. 
+Cell methods refer to the practice of calculating rays by dividing the medium into smaller discretized elements with simple properties. This can be done for range-dependent mediums by dividing the medium into triangles \cite{Jensen}. A simple implementation of the cell method \textit{c}-linear in a range-independent medium is presented.
 
 \subsubsection{Ray tracing using \textit{c}-linear}
 Assuming linear sound speed within a discretized step, the \textit{c}-linear method can be used for calculating ray tracing \cite{Jensen}. Compared to the method of geometric ray tracing described in Section 2.1, which interpolates the ray at a discretized step as a straight line from start to end, \textit{c}-linear calculates the step as a circular arc based on the linear variation in depth $g$ from the sound speed
@@ -214,7 +239,7 @@ c(z) = c_0+gz,
 \label{eq:linearSpeed}
 \end{equation}
 
-where $c_0$ is the initial sound speed at the start of a step and $z$ is the depth. 
+where $c_0$ is the initial sound speed at the start of a step and $z$ is the depth.
 
 From the local angle in Snell's law derived in Eq. \ref{eq:arccosSnell}, the change in angle over the ray path can further be derived as
 \begin{equation}
@@ -276,88 +301,7 @@ I(\mathbf{r}) = \sum_{j=1}^{N} |A_j|^2.
 This approach is appropriate when modeling averaged fields over many source or receiver positions, or when the acoustic field has significant temporal or spatial incoherence. Incoherent summation produces smoother transmission loss patterns without the fine interference structure of coherent calculations. The simple ray-based methods presented in earlier subsections implicitly perform an operation similar to incoherent summation by counting ray arrivals without tracking phase.
 
 \section{RESULTS}
-
-\subsection{Eigenray Detection}
-
-Three underwater acoustic propagation models were compared: two custom ray tracing implementations (c-linear curvature and ray parameter) and Bellhop, an industry-standard Gaussian beam tracer. All models used identical environmental parameters (Munk sound speed profile, source at 1000~m depth, receiver at 1000~m depth and 100~km range, 10,001 launch angles from $-30°$ to $+30°$). Table~\ref{tab:eigenrays} summarizes the eigenray detection results and quantitative comparison.
-
-\begin{table}[h]
-\centering
-\caption{Eigenray Detection and Comparison}
-\label{tab:eigenrays}
-\begin{tabular}{lccc}
-\hline
-Model & N Eigenrays & $\Delta$Time vs C-Linear (s) & $\Delta$Amplitude vs C-Linear (dB) \\
-\hline
-C-Linear Curvature & 113 & --- & --- \\
-Ray Parameter & 115 & $0.002 \pm 0.013$ & $-47.15 \pm 8.83$ \\
-Bellhop & 52 & $0.111 \pm 0.077$ & --- \\
-\hline
-\end{tabular}
-\end{table}
-
-The c-linear curvature model identified 113 eigenrays with the following bounce pattern distribution: approximately 100 direct/refracted paths (0 bounces) arriving at $t \approx 66.66$~s with amplitude $A \approx -89.4$~dB; one bottom-surface-bottom eigenray (2B/1S) at $t = 67.52$~s with $A = -109.2$~dB; and additional multi-bounce patterns including 2B/2S (6 eigenrays), 3B/2S (2 eigenrays), 3B/3S (2 eigenrays), and 3B/4S (2 eigenrays).
-
-The ray parameter model identified 115 eigenrays with a similar distribution. The eigenray count difference (113 vs 115) reflects the slightly finer numerical resolution of the ray parameter method (ds = 1~m) compared to the c-linear method (ds = 5~m), allowing detection of additional eigenrays near the depth tolerance threshold.
-
-\subsection{Timing Agreement}
-
-The two models show excellent agreement in eigenray arrival times, with a mean difference of $0.002 \pm 0.013$~s across 109 matched eigenrays (96.5\% match rate). This sub-millisecond timing agreement validates that both numerical integration schemes correctly solve the ray trajectory equations despite using different discretization methods. The small standard deviation ($\sigma = 0.013$~s) indicates consistent accuracy across all eigenray types, from direct paths to complex multi-bounce patterns.
-
-\subsection{Amplitude Differences}
-
-The models exhibit a systematic amplitude difference of $-47.15 \pm 8.83$~dB, with the ray parameter model predicting consistently higher transmission loss than the c-linear model. This difference arises entirely from the choice of geometrical spreading model rather than numerical error.
-
-The c-linear model uses a hybrid spreading approach with spherical spreading ($TL = 20\log_{10}(r)$) up to the transition range $r_t = 8000$~m (equal to the water depth), then cylindrical spreading ($TL = 10\log_{10}(r/r_t)$) beyond. This simplified model assumes that waveguide effects dominate at ranges exceeding the water depth.
-
-The ray parameter model uses Jacobian-based spreading following Jensen Eq.~3.56, which accounts for ray tube expansion and contraction through the ray tube area $J(s) = |r/\sin\theta \cdot dr/d\theta_0|$. This approach captures focusing and defocusing effects (caustics) that the simple spherical/cylindrical model cannot represent.
-
-At 100~km range with the Munk profile, the two spreading models predict fundamentally different amplitude losses, explaining the observed 47~dB systematic offset. The $\pm 8.83$~dB standard deviation reflects variation across eigenrays with different launch angles and bounce patterns.
-
-\subsection{Physical Validation: Bottom-Surface-Bottom Eigenray}
-
-A notable finding is the bottom-surface-bottom eigenray (2B/1S bounce pattern), which demonstrates successful bottom reflection modeling. This eigenray arrives at $t = 67.52$~s, delayed by 0.86~s relative to direct paths, and has amplitude $A = -109.2$~dB, approximately 20~dB weaker than direct paths. The 20~dB amplitude reduction is consistent with expected bottom reflection loss for the grazing angle and sediment properties used ($\rho_2 = 1900$~kg/m$^3$, $c_2 = 1650$~m/s from Jensen Table~1.3), providing physical validation of the reflection coefficient calculation. The 0.86~s time delay confirms the longer path length due to bottom interaction.
-
-\subsection{Bellhop Comparison}
-
-Bellhop detected 52 eigenrays compared to 113-115 from the ray tracing models, with 35 eigenrays matched across all three models (31\% match rate with custom models vs 96.5\% between the two ray tracers). The timing agreement for matched eigenrays was $0.111 \pm 0.077$~s, indicating good agreement despite the different numerical approaches.
-
-The significantly lower eigenray count from Bellhop reflects fundamental differences in the propagation modeling approach. Bellhop uses Gaussian beam tracing with finite beam width, whereas the custom models use infinitesimal ray tracing. At 100~km range, Bellhop's Gaussian beams have a half-width of approximately 91~km, causing sparse eigenray detection for direct paths where beam centers must pass within tight tolerance of the point receiver. Analysis revealed only 36 direct path eigenrays from Bellhop with large angular gaps (1-5 degrees), compared to approximately 100 continuously distributed direct paths from ray tracing.
-
-Multi-bounce eigenrays showed better agreement: Bellhop detected 16 multi-bounce eigenrays (2B/1S, 2B/2S, 3B/2S, etc.) compared to approximately 13 in the custom models. The geometric constraints imposed by surface and bottom interactions make multi-bounce paths less sensitive to beam width effects, resulting in more reliable detection by Gaussian beam methods.
-
-\section{DISCUSSION}
-
-\subsection{Model Agreement and Numerical Accuracy}
-
-The excellent timing agreement between the two ray tracing implementations ($\Delta t = 0.002 \pm 0.013$~s) demonstrates that both numerical schemes correctly solve the fundamental ray trajectory equations. Despite using different discretization approaches---the c-linear method uses circular arcs with ds = 5~m steps, while the ray parameter method uses Snell's law constant with ds = 1~m steps---both models trace nearly identical ray paths through the Munk sound speed profile.
-
-The 96.5\% eigenray match rate (109 of 113 c-linear eigenrays matched to ray parameter eigenrays) indicates robust eigenray detection across both methods. The small number of unmatched eigenrays (4 in c-linear, 6 in ray parameter) occurs at the boundary of the 10~m depth tolerance window and reflects the different numerical resolutions rather than fundamental algorithmic differences.
-
-The accumulated timing error over 100~km propagation distance remains below 15~ms for nearly all eigenrays, validating the choice of ds = 5~m as the arc-length step size. This step size satisfies the $\lambda/4$ criterion for the 50~Hz source frequency ($\lambda \approx 30$~m, thus ds $<$ 7.5~m) and maintains the linear sound speed approximation error below 0.01\% within each step.
-
-\subsection{Geometrical Spreading Models}
-
-The 47~dB systematic amplitude difference between models arises entirely from the choice of geometrical spreading formulation. The c-linear model implements a simplified hybrid approach: spherical spreading at short ranges transitioning to cylindrical spreading beyond $r_t = 8$~km. This model assumes that once the range exceeds the water depth, acoustic energy is confined to the waveguide and spreads only cylindrically in the horizontal direction.
-
-The ray parameter model implements Jacobian-based spreading, computing the ray tube area from the derivative $dr/d\theta_0$, which requires launching neighboring rays at slightly different initial angles. This approach accounts for ray focusing (convergence) and defocusing (divergence) that occur when the sound speed gradient changes, effects that become significant in deep-water environments with strong refraction.
-
-Neither model is inherently "correct" or "incorrect"---they represent different levels of approximation. The spherical/cylindrical model provides a computationally simple estimate suitable for first-order propagation predictions, while the Jacobian model captures more detailed wave physics at the cost of requiring denser ray spacing to compute numerical derivatives.
-
-\subsection{Physical Validation Through Bottom Reflection}
-
-The detection of the bottom-surface-bottom eigenray (2B/1S) with physically consistent properties validates the reflection coefficient implementation. The observed 20~dB amplitude reduction relative to direct paths agrees with expectations for plane wave reflection from a sandy seabed at the computed grazing angle. Using sediment parameters from Jensen Table~1.3 ($\rho_2 = 1900$~kg/m$^3$, $c_2 = 1650$~m/s), the reflection coefficient $\pazocal{R}$ calculated via the impedance ratio yields a reflection loss consistent with the measured amplitude difference.
-
-The 0.86~s arrival time delay for the 2B/1S eigenray compared to direct paths confirms the longer propagation distance due to the bottom interaction. The successful detection and characterization of this multi-bounce eigenray demonstrates that the models correctly implement both Snell's law refraction and boundary reflection physics.
-
-\subsection{Limitations and Future Work}
-
-Several limitations of the ray-based approach should be acknowledged. First, ray theory fundamentally neglects diffraction effects, making it inappropriate for scenarios involving shadowing, sharp boundaries, or low-frequency propagation relative to environmental features. Second, both models assume a range-independent (horizontally stratified) environment, whereas real ocean environments exhibit three-dimensional variability in sound speed, bathymetry, and sediment properties.
-
-Third, the surface reflection model assumes a perfectly smooth pressure-release boundary. In realistic ocean conditions, surface roughness from wind-generated waves introduces scattering loss and phase variations that degrade coherent propagation, particularly for multi-bounce paths. Fourth, the bottom reflection model uses a simple plane wave reflection coefficient, neglecting more complex effects such as sediment layering, shear wave conversion, and frequency-dependent attenuation.
-
-The comparison with Bellhop validates the ray tracing approach for eigenray timing but reveals important methodological differences. The lower eigenray count from Bellhop's Gaussian beam approach at long range highlights the trade-off between beam-based and ray-based methods: beams handle caustics more gracefully but may miss eigenrays at point receivers due to finite beam width. Future work could investigate hybrid approaches or adaptive eigenray detection criteria. Additionally, implementing adaptive step size control could reduce manual tuning of numerical parameters. Extension to range-dependent environments using triangular cell methods would significantly broaden the applicability of these models to realistic ocean scenarios.
-
+\section{DISCUSSION/CONCLUSION}
 
 %Bibliography
 \bibliographystyle{jaes}

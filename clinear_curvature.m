@@ -296,6 +296,8 @@ xlabel('Range (km)'); ylabel('Depth (m)');
 set(gca,'YDir','reverse');
 title('Ray fan and eigenrays using discretized curvature');
 xlim([0 r_rec/1000]); ylim([z_min - 200 z_max+400]); grid on;
+saveas(gcf, 'figures/clinear_curvature_rays.png');
+fprintf('Saved: figures/clinear_curvature_rays.png\n');
 
 %% ----------------- Arrival time vs Amplitude plot  -----------------
 
@@ -340,6 +342,8 @@ if ~isempty(eigenrays)
     bottomPad = 0.10 * (maxAmp - baseline + eps);
     ylim([baseline, maxAmp + topPad]);
     grid on;
+    saveas(gcf, 'figures/clinear_curvature_arrivals.png');
+    fprintf('Saved: figures/clinear_curvature_arrivals.png\n');
 else
     disp('No eigenrays found to plot arrival times/amplitudes.');
 end
