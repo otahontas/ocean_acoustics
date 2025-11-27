@@ -1,9 +1,9 @@
-%% Discretized c Linear Model - Optimized (7.3x faster)
+%% Discretized c Linear Model
 % Based on the c linear method described by Jensen on p. 209-211
 % Uses local curvature R = c(z) / ( g_local * cos(theta) )
 % Integrates dx/ds = cos(theta), dz/ds = sin(theta), dtheta/ds = g_local*cos(theta)/c
 
-% clear; close all; clc;  % COMMENTED OUT: Don't clear when called from comparison script
+clear; close all; clc;
 
 %% ----------------- User parameters -----------------
 
@@ -31,6 +31,7 @@ z_max = 8000; % bottom (m)
 A0 = 1.0; % initial amplitude at source
 f = 100; % frequency of source signal (for absorption coefficient calculation)
 r_transition = r_rec; % transition range from spherical spreading to cylindrical
+
 %% ----------------- Sound speed and derivative (Munk) -----------------
 % Munk SSP
 c0 = 1500;           % reference speed (m/s)
@@ -66,10 +67,6 @@ for ia = 1:length(angles)
     step = 0;
     found = false;
 
-    % Bounce counting
-    n_surface_bounces = 0;
-    n_bottom_bounces = 0;
-
     % Track last two finite indices to avoid find()
     last_finite_idx = 1;
     second_last_finite_idx = 0;
@@ -96,12 +93,10 @@ for ia = 1:length(angles)
             if z_new < z_min  % surface hit
                 alpha = (z_min - z) / (z_new - z);
                 z_hit = z_min;
-                n_surface_bounces = n_surface_bounces + 1;
             else % bottom hit
                 alpha = (z_max - z) / (z_new - z);
                 z_hit = z_max;
-                n_bottom_bounces = n_bottom_bounces + 1;
-                c_at_hit = c_of_z(z_hit);
+                c_at_hit = c_of_z(z_hit); 
                 A_reflection = A_reflection * bottom_reflection(theta_new, c_at_hit);
             end
             alpha = max(0,min(1,alpha));
@@ -188,15 +183,13 @@ for ia = 1:length(angles)
                     % CYLINDRICAL
                     if path_len > r_transition
                         TLdB = 20 * log10(r_transition) + 10*log10(path_len-r_transition);
-                    else
+                    else 
                         TLdB = 20 * log10(path_len);
                     end
                     TL_abs = 10^(-TLdB / 20);
                     entry.path_len = path_len;
                     amplitudeLinear =  A0 * A_abs * TL_abs * A_reflection;
                     entry.A_at_r = 20*log10(amplitudeLinear);
-                    entry.n_surface = n_surface_bounces;
-                    entry.n_bottom = n_bottom_bounces;
                     eigenrays{end+1} = entry;
                     found = true;
                 end
@@ -209,16 +202,6 @@ for ia = 1:length(angles)
         end
     end
 end
-
-%% ----------------- Print eigenray diagnostics -----------------
-fprintf('\n=== EIGENRAY DIAGNOSTICS ===\n');
-fprintf('Found %d eigenrays:\n', length(eigenrays));
-for k = 1:length(eigenrays)
-    er = eigenrays{k};
-    fprintf('Eigenray %d: Launch angle = %.2f°, Bounces: %dB/%dS, Time = %.2f s, Amp = %.2f dB\n', ...
-            k, rad2deg(er.theta0), er.n_bottom, er.n_surface, er.t_at_r, er.A_at_r);
-end
-fprintf('============================\n\n');
 
 %% ----------------- Plotting (fan + eigenrays) -----------------
 figure('Color','w','Position',[200 200 1000 600]); hold on; box on;
@@ -307,7 +290,7 @@ if ~isempty(eigenrays)
         angles0(k) = rad2deg(eigenrays{k}.theta0); % launch angle (degrees)
         pathlens(k) = eigenrays{k}.path_len;
     end
-
+    
     valid = isfinite(times) & isfinite(amps);
     times = times(valid);
     amps  = amps(valid);
@@ -344,7 +327,7 @@ end
 function R = bottom_reflection(theta_i, c1)
     rho1 = 1000;
     % Sandy seabed
-    rho2 = 1800;   c2 = 1700;
+    rho2 = 1800;   c2 = 1700; 
     Z1 = rho1 * c1;
     Z2 = rho2 * c2;
     sin_theta_t = (c1/c2) * sin(theta_i);
