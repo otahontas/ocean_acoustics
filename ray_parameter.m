@@ -14,20 +14,25 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
     receiver.tol = receiver.tolerance;
     freq = acoustic.frequency;
 
-    % Storage
-    eigenrays = {};
-    eigenray_times = [];
-    eigenray_absorption = [];
-    eigenray_reflection = [];   %%% <<< NEW REFLECTION >>>
-    eigenray_arrival_angle = []; %%% <<< NEW: ARRIVAL ANGLE >>>
-    eigenray_geom_spreading = []; %%% <<< NEW: GEOMETRICAL SPREADING >>>
-    eigenray_indices = [];       %%% <<< NEW: INDEX OF LAUNCH ANGLE >>>
-    eigenray_n_bottom = [];      %%% <<< NEW: BOTTOM BOUNCE COUNT >>>
-    eigenray_n_surface = [];     %%% <<< NEW: SURFACE BOUNCE COUNT >>>
-    normal_rays = {};
+    % Pre-allocate storage (worst case: all rays are eigenrays)
+    max_eigenrays = length(source.launch_angles);
+    eigenrays = cell(1, max_eigenrays);
+    eigenray_times = zeros(1, max_eigenrays);
+    eigenray_absorption = zeros(1, max_eigenrays);
+    eigenray_reflection = zeros(1, max_eigenrays);
+    eigenray_arrival_angle = zeros(1, max_eigenrays);
+    eigenray_geom_spreading = zeros(1, max_eigenrays);
+    eigenray_indices = zeros(1, max_eigenrays);
+    eigenray_n_bottom = zeros(1, max_eigenrays);
+    eigenray_n_surface = zeros(1, max_eigenrays);
+    eigenray_count = 0;  % Track actual count
 
-    % Store all rays to compute Jacobian-based spreading later
-    all_rays = cell(length(source.launch_angles), 1);
+    normal_rays = cell(1, ceil(max_eigenrays/20));  % Pre-allocate for 1/20 of rays
+    normal_ray_count = 0;
+
+    % Store only Jacobian-needed data per ray (not full paths)
+    % For each ray: [r_at_receiver_depth, theta_at_receiver_depth, success_flag]
+    ray_receiver_data = zeros(length(source.launch_angles), 3);
 
     % Main loop
     for i = 1:length(source.launch_angles)
@@ -35,17 +40,21 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
         [ray_path, segment_times, segment_lengths, bounce_types, bounce_angles] = ...
             trace_ray(env, source, theta0);
 
-        % Store full ray path for later Jacobian computation
-        all_rays{i} = ray_path;
+        % Store only receiver-crossing data for Jacobian (not full path)
+        [r_at_depth, theta_at_depth, success] = range_at_depth(ray_path, receiver.depth);
+        ray_receiver_data(i, 1) = r_at_depth;
+        ray_receiver_data(i, 2) = theta_at_depth;
+        ray_receiver_data(i, 3) = success;
 
         % Check receiver hit
         if abs(ray_path(end,2) - receiver.depth) <= receiver.tol
-            eigenrays{end+1} = ray_path;
-            eigenray_indices(end+1) = i;  % remember which launch angle produced this eigenray
+            eigenray_count = eigenray_count + 1;
+            eigenrays{eigenray_count} = ray_path;
+            eigenray_indices(eigenray_count) = i;  % remember which launch angle produced this eigenray
 
             % Travel time
             total_time = sum(segment_times);
-            eigenray_times(end+1) = total_time;
+            eigenray_times(eigenray_count) = total_time;
 
             % === ABSORPTION ===
             total_length_m = sum(segment_lengths);
@@ -53,7 +62,7 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
             alpha_dB_per_km = thorp_absorption(freq/1000); % alpha is in dB/km
             TL_abs_dB = alpha_dB_per_km * total_length_km;
             A_abs = 10^(-TL_abs_dB / 20);
-            eigenray_absorption(end+1) = A_abs;
+            eigenray_absorption(eigenray_count) = A_abs;
 
             % === REFLECTION LOSSES ===
             A_ref = 1;
@@ -68,24 +77,37 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
                     n_bot = n_bot + 1;
                 end
             end
-            eigenray_reflection(end+1) = A_ref;
-            eigenray_n_surface(end+1) = n_surf;
-            eigenray_n_bottom(end+1) = n_bot;
+            eigenray_reflection(eigenray_count) = A_ref;
+            eigenray_n_surface(eigenray_count) = n_surf;
+            eigenray_n_bottom(eigenray_count) = n_bot;
 
             % === ARRIVAL ANGLE ESTIMATION ===
             dx = ray_path(end,1) - ray_path(end-1,1);
             dz = ray_path(end,2) - ray_path(end-1,2);
             theta_arrival = atan2(dz, dx);   % radians
-            eigenray_arrival_angle(end+1) = rad2deg(theta_arrival);  % store in degrees
+            eigenray_arrival_angle(eigenray_count) = rad2deg(theta_arrival);  % store in degrees
         end
 
         % Store 1/20 of normal rays (sparse fan)
         if mod(i,20) == 0
-            normal_rays{end+1} = ray_path;
+            normal_ray_count = normal_ray_count + 1;
+            normal_rays{normal_ray_count} = ray_path;
         end
     end
 
-    fprintf('Total eigenrays found: %d\n', numel(eigenrays));
+    % Trim arrays to actual size
+    eigenrays = eigenrays(1:eigenray_count);
+    eigenray_times = eigenray_times(1:eigenray_count);
+    eigenray_absorption = eigenray_absorption(1:eigenray_count);
+    eigenray_reflection = eigenray_reflection(1:eigenray_count);
+    eigenray_arrival_angle = eigenray_arrival_angle(1:eigenray_count);
+    eigenray_geom_spreading = eigenray_geom_spreading(1:eigenray_count);
+    eigenray_indices = eigenray_indices(1:eigenray_count);
+    eigenray_n_bottom = eigenray_n_bottom(1:eigenray_count);
+    eigenray_n_surface = eigenray_n_surface(1:eigenray_count);
+    normal_rays = normal_rays(1:normal_ray_count);
+
+    fprintf('Total eigenrays found: %d\n', eigenray_count);
 
     % =============================================
     % GEOMETRICAL SPREADING VIA JACOBIAN (from the Jensen ref book)
@@ -102,13 +124,14 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
         idx = eigenray_indices(k);               % index of launch angle
         theta0 = source.launch_angles(idx);      % launch angle at source
 
-        % Main eigenray path
-        ray_main = all_rays{idx};
+        % Get pre-computed receiver-crossing data
+        r_main = ray_receiver_data(idx, 1);
+        theta_receiver = ray_receiver_data(idx, 2);
+        success_main = ray_receiver_data(idx, 3);
 
-        % Find intersection range r_main and local angle at receiver depth
-        [r_main, theta_receiver, success_main] = range_at_depth(ray_main, receiver.depth);
-
-        if ~success_main
+        if ~success_main || isnan(r_main)
+            % Fallback: use eigenray path length
+            ray_main = eigenrays{k};
             s_fallback = arc_length(ray_main);
             A_geom = 1 / (4 * pi * s_fallback);
             eigenray_geom_spreading(k) = A_geom;
@@ -144,9 +167,9 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
         dr_dtheta = NaN;
         for nn = 1:length(idx_neigh_candidates)
             j = idx_neigh_candidates(nn);
-            ray_neigh = all_rays{j};
-            [r_neigh, ~, success_neigh] = range_at_depth(ray_neigh, receiver.depth);
-            if success_neigh
+            r_neigh = ray_receiver_data(j, 1);
+            success_neigh = ray_receiver_data(j, 3);
+            if success_neigh && ~isnan(r_neigh)
                 dtheta = source.launch_angles(j) - theta0;
                 dr_dtheta = (r_neigh - r_main) / dtheta;
                 break;
@@ -154,6 +177,8 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
         end
 
         if isnan(dr_dtheta) || abs(sin(theta_receiver)) < 1e-6
+            % Fallback: use eigenray path length
+            ray_main = eigenrays{k};
             s_fallback = arc_length(ray_main);
             A_geom = 1 / (4 * pi * s_fallback);
             eigenray_geom_spreading(k) = A_geom;
@@ -247,8 +272,8 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
 function [ray_path, segment_times, segment_lengths, bounce_types, bounce_angles] ...
          = trace_ray(env, source, theta0)
 
-    ds = 1.0;
-    max_steps = 500000;
+    ds = 5.0;  % Increased from 1.0 for 5x speedup
+    max_steps = 100000;  % Reduced proportionally (was 500000)
 
     x = 0.0; 
     z = source.depth;
@@ -369,11 +394,14 @@ end
 
 %% Sound speed profile
 function c = sound_speed(z)
-    % Use shared SSP parameters
-    shared_params;
-    z0 = ssp.z0;
-    c0 = ssp.c0;
-    eps = ssp.epsilon;
+    % Cache SSP parameters to avoid repeated shared_params loads
+    persistent z0 c0 eps
+    if isempty(z0)
+        shared_params;
+        z0 = ssp.z0;
+        c0 = ssp.c0;
+        eps = ssp.epsilon;
+    end
     zbar = 2 * (z - z0) / z0;
     c = c0 * (1 + eps * (zbar - 1 + exp(-zbar)));
 end
