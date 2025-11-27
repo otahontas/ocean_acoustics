@@ -3,7 +3,7 @@
 % Uses local curvature R = c(z) / ( g_local * cos(theta) )
 % Integrates dx/ds = cos(theta), dz/ds = sin(theta), dtheta/ds = g_local*cos(theta)/c
 
-clear; close all; clc;
+% clear; close all; clc;  % COMMENTED OUT: Don't clear when called from comparison script
 
 %% ----------------- User parameters -----------------
 

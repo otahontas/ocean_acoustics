@@ -1,5 +1,5 @@
 %% Ray Parameter Model
-close all; clear; clc;
+close all; % clear; clc;  % COMMENTED OUT: Don't clear when called from comparison script
 
 use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
     % true  = A = 1/(4πR)
@@ -10,13 +10,13 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
     env.max_range = 100000;   
 
     % Source parameters
-    source.depth = 1000;                         
-    source.launch_angles = deg2rad(linspace(-25, 25, 1000));
+    source.depth = 1000;
+    source.launch_angles = deg2rad(linspace(-30, 30, 10001));  % Match clinear: 10001 angles
 
     % Receiver parameters
-    receiver.depth = 1000;    
-    receiver.rng = 100000;    
-    receiver.tol = 5; 
+    receiver.depth = 1000;
+    receiver.rng = 100000;
+    receiver.tol = 10;  % Match clinear: 10m tolerance 
 
     % Acoustic parameters
     freq = 50;   % Hz
@@ -29,6 +29,8 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
     eigenray_arrival_angle = []; %%% <<< NEW: ARRIVAL ANGLE >>>
     eigenray_geom_spreading = []; %%% <<< NEW: GEOMETRICAL SPREADING >>>
     eigenray_indices = [];       %%% <<< NEW: INDEX OF LAUNCH ANGLE >>>
+    eigenray_n_bottom = [];      %%% <<< NEW: BOTTOM BOUNCE COUNT >>>
+    eigenray_n_surface = [];     %%% <<< NEW: SURFACE BOUNCE COUNT >>>
     normal_rays = {};
 
     % Store all rays to compute Jacobian-based spreading later
@@ -62,14 +64,20 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
 
             % === REFLECTION LOSSES ===
             A_ref = 1;
+            n_surf = 0;
+            n_bot = 0;
             for b = 1:length(bounce_types) % multiply all the reflections together
                 if bounce_types{b} == "surface"
                     A_ref = A_ref * (-1);   % perfect pressure-release
+                    n_surf = n_surf + 1;
                 else
                     A_ref = A_ref * bottom_reflection(bounce_angles(b), env.max_depth);
+                    n_bot = n_bot + 1;
                 end
             end
             eigenray_reflection(end+1) = A_ref;
+            eigenray_n_surface(end+1) = n_surf;
+            eigenray_n_bottom(end+1) = n_bot;
 
             % === ARRIVAL ANGLE ESTIMATION ===
             dx = ray_path(end,1) - ray_path(end-1,1);
@@ -195,8 +203,8 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
              'HandleVisibility', 'off');
         A_tot = eigenray_geom_spreading(i) * eigenray_absorption(i) * eigenray_reflection(i);
         A_tot_dB = 20*log10(abs(A_tot));
-        fprintf("Eg-ray %d: Time = %.3f s, Geom_spread= %.2f, Absor = %.6f, Reflect = %.2f, Arri angle = %.2f deg, A_tot = %.2f dB\n", ...
-                 i, eigenray_times(i), eigenray_geom_spreading(i)*1000000, eigenray_absorption(i), eigenray_reflection(i), eigenray_arrival_angle(i), A_tot_dB);
+        fprintf("Eg-ray %d: Bounces %dB/%dS, Time = %.3f s, Arri angle = %.2f deg, A_tot = %.2f dB\n", ...
+                 i, eigenray_n_bottom(i), eigenray_n_surface(i), eigenray_times(i), eigenray_arrival_angle(i), A_tot_dB);
     end
 
     plot(0, source.depth, 'bs', 'MarkerFaceColor','b');
@@ -340,7 +348,12 @@ function [x_at_depth, theta_at_depth, success] = range_at_depth(ray_path, depth)
     x1 = x(idx);   x2 = x(idx+1);
 
     % Linear interpolation in z to find x at the exact depth
-    x_at_depth = interp1([z1 z2], [x1 x2], depth);
+    % Check if z values are unique (avoid interp1 error)
+    if abs(z2 - z1) < 1e-10
+        x_at_depth = x1;  % Ray is horizontal, use first point
+    else
+        x_at_depth = interp1([z1 z2], [x1 x2], depth);
+    end
 
     % Local ray angle (propagation direction) on this segment
     dz = z2 - z1;

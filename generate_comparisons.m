@@ -3,7 +3,17 @@
 clear; close all; clc;
 
 % Add utils to path
-addpath('utils');
+% Note: When run via matlab -batch, use pwd; when run directly, mfilename works
+if isempty(regexp(mfilename, '^LiveEditorEvaluationHelper'))
+    script_dir = fileparts(mfilename('fullpath'));
+else
+    script_dir = pwd;
+end
+if isempty(script_dir)
+    script_dir = pwd;  % Fallback to current directory
+end
+utils_path = fullfile(script_dir, 'utils');
+addpath(utils_path);
 
 fprintf('=== OCEAN ACOUSTICS MODEL COMPARISON ===\n\n');
 
@@ -29,7 +39,8 @@ params_ray.receiver_rng = receiver.rng;
 params_ray.freq = freq;
 data_rayparam = extract_eigenrays_rayparam(eigenrays, eigenray_times, ...
     eigenray_absorption, eigenray_reflection, eigenray_geom_spreading, ...
-    eigenray_arrival_angle, eigenray_indices, source.launch_angles, params_ray);
+    eigenray_arrival_angle, eigenray_indices, source.launch_angles, ...
+    eigenray_n_bottom, eigenray_n_surface, params_ray);
 close all;
 
 % Run Bellhop
@@ -104,12 +115,26 @@ fprintf(fid, '\\hline\n');
 fprintf(fid, 'Model & N Eigenrays & $\\Delta$Time vs C-Linear (s) & $\\Delta$Amplitude vs C-Linear (dB) \\\\\n');
 fprintf(fid, '\\hline\n');
 fprintf(fid, 'C-Linear Curvature & %d & --- & --- \\\\\n', data_clinear.n_eigenrays);
-fprintf(fid, 'Ray Parameter & %d & $%.3f \\pm %.3f$ & $%.2f \\pm %.2f$ \\\\\n', ...
-    data_rayparam.n_eigenrays, comp_clin_ray.mean_dt, comp_clin_ray.std_dt, ...
-    comp_clin_ray.mean_dA, comp_clin_ray.std_dA);
-fprintf(fid, 'Bellhop & %d & $%.3f \\pm %.3f$ & $%.2f \\pm %.2f$ \\\\\n', ...
-    data_bellhop.n_eigenrays, comp_clin_bell.mean_dt, comp_clin_bell.std_dt, ...
-    comp_clin_bell.mean_dA, comp_clin_bell.std_dA);
+
+% Ray Parameter row
+if isfield(comp_clin_ray, 'mean_dt') && comp_clin_ray.n_matched > 0
+    fprintf(fid, 'Ray Parameter & %d & $%.3f \\pm %.3f$ & $%.2f \\pm %.2f$ \\\\\n', ...
+        data_rayparam.n_eigenrays, comp_clin_ray.mean_dt, comp_clin_ray.std_dt, ...
+        comp_clin_ray.mean_dA, comp_clin_ray.std_dA);
+else
+    fprintf(fid, 'Ray Parameter & %d & N/A (no matches) & N/A (no matches) \\\\\n', ...
+        data_rayparam.n_eigenrays);
+end
+
+% Bellhop row (if available)
+if ~isempty(data_bellhop) && isfield(comp_clin_bell, 'mean_dt') && comp_clin_bell.n_matched > 0
+    fprintf(fid, 'Bellhop & %d & $%.3f \\pm %.3f$ & $%.2f \\pm %.2f$ \\\\\n', ...
+        data_bellhop.n_eigenrays, comp_clin_bell.mean_dt, comp_clin_bell.std_dt, ...
+        comp_clin_bell.mean_dA, comp_clin_bell.std_dA);
+elseif ~isempty(data_bellhop)
+    fprintf(fid, 'Bellhop & %d & N/A (no matches) & N/A (no matches) \\\\\n', ...
+        data_bellhop.n_eigenrays);
+end
 fprintf(fid, '\\hline\n');
 fprintf(fid, '\\end{tabular}\n');
 fprintf(fid, '\\end{table}\n');

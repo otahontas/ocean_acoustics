@@ -1,6 +1,7 @@
 function eig_data = extract_eigenrays_rayparam(eigenrays, eigenray_times, ...
     eigenray_absorption, eigenray_reflection, eigenray_geom_spreading, ...
-    eigenray_arrival_angle, eigenray_indices, source_launch_angles, params)
+    eigenray_arrival_angle, eigenray_indices, source_launch_angles, ...
+    eigenray_n_bottom, eigenray_n_surface, params)
     % Extract eigenray data from ray_parameter output
 
     eig_data = EigenrayData('ray_parameter');
@@ -30,11 +31,9 @@ function eig_data = extract_eigenrays_rayparam(eigenrays, eigenray_times, ...
         eig_data.path_lengths(i) = sum(sqrt(dr.^2 + dz.^2));
     end
 
-    % Bounce counts (need to extract from trace_ray output)
-    % This requires modifying ray_parameter.m to store bounce info
-    % For now, set to NaN
-    eig_data.n_surface_bounces = nan(n, 1);
-    eig_data.n_bottom_bounces = nan(n, 1);
+    % Bounce counts (now available from ray_parameter.m)
+    eig_data.n_surface_bounces = eigenray_n_surface';
+    eig_data.n_bottom_bounces = eigenray_n_bottom';
 
     % Metadata
     eig_data.source_depth = params.source_depth;

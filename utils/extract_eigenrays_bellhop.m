@@ -22,32 +22,26 @@ function eig_data = extract_eigenrays_bellhop(scenario_file, output_prefix)
     % plotray expects global variables set by bellhop
     % We need to manually parse the .ray file
 
-    % Read .ray file (binary format)
+    % Read .ray file (Bellhop format - matching plotray.m)
     fid = fopen(ray_file, 'r');
 
-    % Header
+    % Header (following plotray.m format)
     Title = fgetl(fid);
     freq = fscanf(fid, '%f', 1);
-    Nsx = fscanf(fid, '%i', 1); % number of source depths
-    Nsy = fscanf(fid, '%i', 1);
-    Nsz = fscanf(fid, '%i', 1);
+    Nsxyz = fscanf(fid, '%f', 3); % [Nsx Nsy Nsz]
+    NBeamAngles = fscanf(fid, '%i', 2); % [Nalpha Nbeta]
 
-    % Read source positions
-    fgetl(fid); % skip newline
-    xs = fscanf(fid, '%f', Nsx);
-    ys = fscanf(fid, '%f', Nsy);
-    zs = fscanf(fid, '%f', Nsz);
+    DepthT = fscanf(fid, '%f', 1);
+    DepthB = fscanf(fid, '%f', 1);
 
-    % Read receiver depth
-    Nrd = fscanf(fid, '%i', 1);
-    fgetl(fid);
-    rd = fscanf(fid, '%f', Nrd);
+    Type = fgetl(fid); % consume newline
+    Type = fgetl(fid); % read type line (e.g., 'rz')
 
-    % Read number of rays
-    Nrays = fscanf(fid, '%i', 1);
+    Nsz = Nsxyz(3);
+    Nalpha = NBeamAngles(1);
 
     % Preallocate
-    eig_data.launch_angles = zeros(Nrays, 1);
+    eig_data.launch_angles = [];
     eig_data.arrival_times = [];
     eig_data.arrival_angles = [];
     eig_data.amplitudes_dB = [];
@@ -58,41 +52,42 @@ function eig_data = extract_eigenrays_bellhop(scenario_file, output_prefix)
 
     eigenray_count = 0;
 
-    % Read each ray
-    for iray = 1:Nrays
-        alpha0 = fscanf(fid, '%f', 1); % launch angle
-        NumTopBnc = fscanf(fid, '%i', 1);
-        NumBotBnc = fscanf(fid, '%i', 1);
-        Nsteps = fscanf(fid, '%i', 1);
+    % Read rays (following plotray.m structure)
+    for isz = 1:Nsz
+        for ibeam = 1:Nalpha
+            alpha0 = fscanf(fid, '%f', 1); % launch angle
+            nsteps = fscanf(fid, '%i', 1);
 
-        % Read ray points
-        ray_data = fscanf(fid, '%f', [2, Nsteps]); % [r; z]
-        ray_path = ray_data';
+            NumTopBnc = fscanf(fid, '%i', 1);
+            NumBotBnc = fscanf(fid, '%i', 1);
 
-        % Check if this ray is an eigenray (passes near receiver)
-        % In eigenray mode, Bellhop should only output eigenrays
-        % So all rays in the file are eigenrays
+            if isempty(nsteps); break; end
 
-        eigenray_count = eigenray_count + 1;
-        eig_data.launch_angles(eigenray_count) = alpha0;
-        eig_data.n_surface_bounces(eigenray_count) = NumTopBnc;
-        eig_data.n_bottom_bounces(eigenray_count) = NumBotBnc;
-        eig_data.ray_paths{eigenray_count} = ray_path;
+            % Read ray points [r; z]
+            ray_data = fscanf(fid, '%f', [2, nsteps]);
+            ray_path = ray_data'; % transpose to [nsteps x 2]
 
-        % Compute path length
-        dr = diff(ray_path(:,1));
-        dz = diff(ray_path(:,2));
-        eig_data.path_lengths(eigenray_count) = sum(sqrt(dr.^2 + dz.^2));
+            % In eigenray mode, all rays should be eigenrays
+            eigenray_count = eigenray_count + 1;
+            eig_data.launch_angles(eigenray_count) = alpha0;
+            eig_data.n_surface_bounces(eigenray_count) = NumTopBnc;
+            eig_data.n_bottom_bounces(eigenray_count) = NumBotBnc;
+            eig_data.ray_paths{eigenray_count} = ray_path;
 
-        % Compute arrival time (need sound speed profile)
-        % For now, approximate
-        c_avg = 1500; % m/s
-        eig_data.arrival_times(eigenray_count) = eig_data.path_lengths(eigenray_count) / c_avg;
+            % Compute path length
+            dr = diff(ray_path(:,1));
+            dz = diff(ray_path(:,2));
+            eig_data.path_lengths(eigenray_count) = sum(sqrt(dr.^2 + dz.^2));
 
-        % Arrival angle (last segment)
-        dx = ray_path(end,1) - ray_path(end-1,1);
-        dz = ray_path(end,2) - ray_path(end-1,2);
-        eig_data.arrival_angles(eigenray_count) = rad2deg(atan2(dz, dx));
+            % Compute arrival time (approx with average c)
+            c_avg = 1500; % m/s
+            eig_data.arrival_times(eigenray_count) = eig_data.path_lengths(eigenray_count) / c_avg;
+
+            % Arrival angle (last segment)
+            dx = ray_path(end,1) - ray_path(end-1,1);
+            dz = ray_path(end,2) - ray_path(end-1,2);
+            eig_data.arrival_angles(eigenray_count) = rad2deg(atan2(dz, dx));
+        end
     end
 
     fclose(fid);
