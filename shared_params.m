@@ -18,8 +18,8 @@ receiver.range = 100000;    % receiver range (m)
 receiver.tolerance = 5;     % eigenray hit tolerance (m)
 
 %% Ray fan parameters
-ray_fan.angle_min = -25;    % minimum launch angle (degrees)
-ray_fan.angle_max = 25;     % maximum launch angle (degrees)
+ray_fan.angle_min = -30;    % minimum launch angle (degrees)
+ray_fan.angle_max = 30;     % maximum launch angle (degrees)
 ray_fan.num_angles = 10001; % number of rays in fan
 
 %% Acoustic parameters
