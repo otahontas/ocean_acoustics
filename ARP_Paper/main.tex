@@ -301,7 +301,80 @@ I(\mathbf{r}) = \sum_{j=1}^{N} |A_j|^2.
 This approach is appropriate when modeling averaged fields over many source or receiver positions, or when the acoustic field has significant temporal or spatial incoherence. Incoherent summation produces smoother transmission loss patterns without the fine interference structure of coherent calculations. The simple ray-based methods presented in earlier subsections implicitly perform an operation similar to incoherent summation by counting ray arrivals without tracking phase.
 
 \section{RESULTS}
-\section{DISCUSSION/CONCLUSION}
+
+All three models were tested using identical environmental parameters: a Munk sound speed profile with source at 1000m depth and receiver at 100km range and 1000m depth. A fan of 10,001 rays was launched between $-30^\circ$ and $30^\circ$, and the seabed was modeled as a sandy bottom with density $\rho = 1800$ kg/m$^3$ and sound speed $c = 1700$ m/s at 100 Hz.
+
+\subsection{Eigenray Detection}
+
+The three models found significantly different numbers of eigenrays connecting the source to the receiver. The c-linear curvature model detected 54 eigenrays, the ray parameter model found 56, while Bellhop identified 24. This 2-2.3x difference reflects distinct detection approaches rather than modeling accuracy. The custom ray-based methods scan through a dense ray fan and flag any rays passing within a tolerance of the receiver depth. Bellhop uses a beam tracing approach with adaptive step sizing and beam convergence criteria, identifying only the energetically dominant paths.
+
+Figure \ref{fig:clinear_rays} shows the eigenray paths for the c-linear curvature model, while Figure \ref{fig:rayparam_rays} shows the ray parameter model results. Both models capture the characteristic deep-water propagation pattern with rays refracting through the Munk channel. The non-bouncing eigenrays launched near horizontal angles ($\theta_0 \approx \pm 4-5^\circ$) remain trapped in the sound channel, while steeper launch angles produce rays that reflect from the surface and bottom.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.45\textwidth]{clinear_curvature_rays.png}
+\caption{Eigenray paths computed by the c-linear curvature model. Source at 1000m depth, receiver at 100km range and 1000m depth.}
+\label{fig:clinear_rays}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.45\textwidth]{ray_parameter_rays.png}
+\caption{Eigenray paths computed by the ray parameter model. Same configuration as Fig. \ref{fig:clinear_rays}.}
+\label{fig:rayparam_rays}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.45\textwidth]{bellhop_rays.png}
+\caption{Eigenray paths computed by Bellhop. Bellhop identifies fewer but energetically dominant paths compared to the custom models.}
+\label{fig:bellhop_rays}
+\end{figure}
+
+\subsection{Ray Path Characteristics}
+
+The non-bouncing eigenrays cluster into three groups based on launch angle. Rays launched near $\theta_0 \approx -4.7^\circ$ to $-4.7^\circ$ have path lengths around 100,215m and travel times of 66.66s. A second cluster near $\theta_0 \approx \pm 0.6-0.7^\circ$ shows slightly shorter paths (100,048m) with minimal additional travel time. Rays launched at steeper angles ($\theta_0 \approx \pm 9.8^\circ$) travel longer paths (100,737m) with travel times of 66.58s. The c-linear model also detected several bouncing rays with 2-3 bottom and surface reflections, reaching path lengths up to 111km and travel times exceeding 71s.
+
+The ray parameter model found two additional eigenrays compared to c-linear, including rays with more complex bounce patterns. Both models identified an eigenray near $\theta_0 = 0^\circ$ corresponding to the direct horizontal path through the sound channel axis.
+
+\subsection{Amplitude Predictions}
+
+Amplitude calculations differ significantly between the two custom models due to their spreading loss approaches. The c-linear model uses simple geometric spreading, producing amplitudes between $-117$ dB and $-124$ dB for non-bouncing rays, with bouncing rays attenuated to $-150$ to $-191$ dB due to bottom losses.
+
+The ray parameter model implements Jensen's Jacobian spreading formula, which tracks changes in ray tube cross-section along the propagation path. This produces more variable amplitude predictions: non-bouncing rays range from $-122$ dB to $-166$ dB, showing the effect of caustic formation and ray convergence. Figure \ref{fig:rayparam_arrivals} shows the arrival structure for the ray parameter model.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.45\textwidth]{ray_parameter_arrivals.png}
+\caption{Impulse response at receiver showing arrival times and amplitudes for the ray parameter model.}
+\label{fig:rayparam_arrivals}
+\end{figure}
+
+Both models predict the strongest arrival near $\theta_0 = 0^\circ$ (the horizontal ray through the channel axis) at $-122$ dB for the ray parameter model and $-117$ dB for the c-linear model. Travel times for the dominant arrivals cluster tightly around 66.66s, consistent with a 100km range and average sound speed near 1500 m/s.
+
+\section{DISCUSSION}
+
+The comparison reveals that simple ray-based methods can capture the geometric structure of deep-water propagation but differ in how they handle amplitude predictions and eigenray selection. The c-linear method improves on basic geometric ray tracing by treating each integration step as a circular arc rather than a straight line. This accounts for the continuous curvature of rays in a stratified medium and produces smoother trajectories, particularly in regions with strong sound speed gradients.
+
+The ray parameter method further refines amplitude calculation by tracking the Jacobian determinant along the ray path. This captures focusing and defocusing effects as ray tubes expand and contract. The large amplitude variance in the ray parameter model ($-122$ to $-166$ dB for non-bouncing rays) reflects realistic caustic behavior where rays converge and diverge. However, the method also shows some outliers with very high attenuation ($-166$ dB), which may indicate numerical issues near turning points where rays approach horizontal.
+
+Bellhop identifies fewer eigenrays because it selects beams based on energy contribution rather than geometric proximity. The 24 eigenrays Bellhop found likely represent the dominant propagation paths that carry most of the acoustic energy. The custom models, by scanning through 10,001 rays with a fixed tolerance criterion, capture many weakly excited paths that contribute minimally to the total field. This distinction is important for applications: if only the arrival structure is needed, the custom models provide more detail. If accurate pressure field prediction is required, Bellhop's beam summation with proper phase handling would be more appropriate.
+
+One limitation of the custom models is their treatment of boundary reflections. Both assume perfect specular reflection with phase reversal, which is realistic for the sea surface but oversimplified for the bottom. Real sediment layers introduce frequency-dependent reflection loss and phase shifts. The c-linear model applies a fixed $-35$ dB penalty per bottom bounce, which approximates measured losses for sandy bottoms but ignores angle dependence. The ray parameter model does not include explicit bottom loss, which explains why some of its bouncing rays show unrealistically high amplitudes.
+
+Neither custom model includes absorption loss from the medium itself. At 100 Hz, seawater absorption is negligible over 100km ($\sim$0.5 dB total using Equation \ref{eq:attenuationfrequency}), but at higher frequencies this would become significant. Both models also neglect volume scattering from marine life and small-scale fluctuations in the sound speed profile, which would introduce additional spreading and loss mechanisms.
+
+The computational performance difference between the methods is substantial. The geometric ray tracing method completes in under a second due to its simple integration steps. The c-linear method takes slightly longer because it computes circular arc parameters at each step. The ray parameter method, despite optimizations like pre-allocated arrays and receiver-only data tracking, runs slower due to the Jacobian calculation. Bellhop's adaptive step sizing and beam tracking make it more expensive per ray, but it launches fewer beams to achieve similar coverage.
+
+\section{CONCLUSION}
+
+We implemented two simple ray-based underwater sound propagation models and compared them to the established Bellhop beam tracer. The c-linear curvature method and ray parameter method both successfully reproduce the geometric structure of long-range deep-water propagation through a Munk sound speed profile. The models identified 54-56 eigenrays connecting a source at 1000m depth to a receiver at 100km range, compared to 24 eigenrays found by Bellhop.
+
+The difference in eigenray count reflects detection philosophy rather than accuracy. The custom models scan densely spaced rays and report all paths passing near the receiver, while Bellhop selects energetically dominant beams. For impulse response prediction, the custom methods provide detailed arrival structure but require careful interpretation of amplitude predictions. The ray parameter model's Jacobian spreading calculation captures realistic focusing effects but shows numerical sensitivity near caustics. The c-linear model's simpler geometric spreading produces stable results but misses fine-scale amplitude variations.
+
+Both custom models assume idealized boundary conditions and neglect absorption and volume scattering. These approximations are acceptable for the 100 Hz, 100km scenario tested but would require refinement at higher frequencies or in shallow water environments. For accurate pressure field prediction including interference effects, methods like Bellhop that handle coherent beam summation remain necessary.
+
+The work demonstrates that ray-based methods provide computational efficiency and physical insight for long-range propagation problems where geometric effects dominate over wave phenomena.
 
 %Bibliography
 \bibliographystyle{jaes}
