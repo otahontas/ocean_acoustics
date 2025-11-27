@@ -1,41 +1,39 @@
-%% Discretized c Linear Model - Optimized (7.3x faster)
+%% Discretized c linear model
 % Based on the c linear method described by Jensen on p. 209-211
 % Uses local curvature R = c(z) / ( g_local * cos(theta) )
 % Integrates dx/ds = cos(theta), dz/ds = sin(theta), dtheta/ds = g_local*cos(theta)/c
 
 % clear; close all; clc;  % COMMENTED OUT: Don't clear when called from comparison script
 
-%% ----------------- User parameters -----------------
+%% ----------------- Load shared parameters -----------------
+shared_params;
 
-% Source/receiver
-z_s = 1000;    % source depth (m)
-r_s = 0;       % source range (m)
-r_rec = 100000; % receiver range (m)
-z_rec = 1000;  % receiver depth (m)
+% Map shared parameters to local variables for backward compatibility
+z_s = source.depth;
+r_s = source.range;
+r_rec = receiver.range;
+z_rec = receiver.depth;
+depth_tol = receiver.tolerance;
 
-% Ray fan
-angles_deg = linspace(-25,25,50001);
+angles_deg = linspace(ray_fan.angle_min, ray_fan.angle_max, ray_fan.num_angles);
 angles = deg2rad(angles_deg);
-depth_tol = 5; % eigenray hit tolerance (m)
 
-% Numerical stepping
+% Numerical stepping (model-specific)
 ds = 30.0; % arc-length step (m)
 max_steps = 5e7;
-max_range = r_rec * 1.2;
+max_range = receiver.range * 1.2;
 
-% Boundaries
-z_min = 0; % surface (m)
-z_max = 8000; % bottom (m)
+z_min = env.z_min;
+z_max = env.z_max;
 
-% Transfer loss
 A0 = 1.0; % initial amplitude at source
-f = 100; % frequency of source signal (for absorption coefficient calculation)
-r_transition = r_rec; % transition range from spherical spreading to cylindrical
+f = acoustic.frequency;
+r_transition = receiver.range; % transition range from spherical spreading to cylindrical
+
 %% ----------------- Sound speed and derivative (Munk) -----------------
-% Munk SSP
-c0 = 1500;           % reference speed (m/s)
-z0_munk = 1300;      % reference depth (m)
-eps_munk = 0.00737;     % scale epsilon 
+c0 = ssp.c0;
+z0_munk = ssp.z0;
+eps_munk = ssp.epsilon; 
 
 c_of_z = @(z) c0 .* ( 1 + eps_munk .* ((2*(z - z0_munk)./z0_munk) - 1 + exp(-2*(z - z0_munk)./z0_munk)));
 % analytic derivative of Munk
@@ -331,7 +329,8 @@ if ~isempty(eigenrays)
     xlabel('Arrival time (s)');
     ylabel('Amplitude (dB)');
     title('Eigenray Arrival Time vs Amplitude');
-    xlim([min(times)-0.05*range(times), max(times)+0.05*range(times)]);
+    time_range = max(times) - min(times);
+    xlim([min(times)-0.05*time_range, max(times)+0.05*time_range]);
     topPad = 0.15 * (maxAmp - baseline + eps);
     bottomPad = 0.10 * (maxAmp - baseline + eps);
     ylim([baseline, maxAmp + topPad]);
@@ -342,9 +341,11 @@ end
 
 % Reflection and frequency absorption functions
 function R = bottom_reflection(theta_i, c1)
-    rho1 = 1000;
-    % Sandy seabed
-    rho2 = 1800;   c2 = 1700;
+    % Use shared seabed parameters
+    shared_params;
+    rho1 = seabed.rho_water;
+    rho2 = seabed.rho_bottom;
+    c2 = seabed.c_bottom;
     Z1 = rho1 * c1;
     Z2 = rho2 * c2;
     sin_theta_t = (c1/c2) * sin(theta_i);

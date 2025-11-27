@@ -5,7 +5,7 @@ Compare c-linear ray tracing against Bellhop.
 
 ## Installation
 
-Requires: `make`, `gfortran` (install with `brew install gfortran`)
+Requires: `make`, `gfortran` (install for mac with `brew install gfortran`)
 
 Run: `./install_acoustics_toolbox.sh`
 

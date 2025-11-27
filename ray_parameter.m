@@ -1,25 +1,18 @@
 %% Ray Parameter Model
 close all; % clear; clc;  % COMMENTED OUT: Don't clear when called from comparison script
 
+%% ----------------- Load shared parameters -----------------
+shared_params;
+
 use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
     % true  = A = 1/(4πR)
     % false = Jensen Jacobian model (complex spreading)
 
-    % Environment parameters
-    env.max_depth = 8000;     
-    env.max_range = 100000;   
-
-    % Source parameters
-    source.depth = 1000;
-    source.launch_angles = deg2rad(linspace(-30, 30, 10001));  % Match clinear: 10001 angles
-
-    % Receiver parameters
-    receiver.depth = 1000;
-    receiver.rng = 100000;
-    receiver.tol = 10;  % Match clinear: 10m tolerance 
-
-    % Acoustic parameters
-    freq = 50;   % Hz
+    % Map shared parameters to local variables
+    source.launch_angles = deg2rad(linspace(ray_fan.angle_min, ray_fan.angle_max, ray_fan.num_angles));
+    receiver.rng = receiver.range;
+    receiver.tol = receiver.tolerance;
+    freq = acoustic.frequency;
 
     % Storage
     eigenrays = {};
@@ -376,9 +369,11 @@ end
 
 %% Sound speed profile
 function c = sound_speed(z)
-    z0 = 1300.0;   
-    c0 = 1500.0;   
-    eps = 0.00737; 
+    % Use shared SSP parameters
+    shared_params;
+    z0 = ssp.z0;
+    c0 = ssp.c0;
+    eps = ssp.epsilon;
     zbar = 2 * (z - z0) / z0;
     c = c0 * (1 + eps * (zbar - 1 + exp(-zbar)));
 end
@@ -397,11 +392,12 @@ end
 %% Bottom reflection coefficient  %%% <<< NEW REFLECTION >>>
 function R = bottom_reflection(theta_i, depth)
 
-    % Water
-    rho1 = 1000;   c1 = sound_speed(depth);
-
-    % Sandy seabed (Jensen Table 1.3)
-    rho2 = 1900;   c2 = 1650; 
+    % Use shared seabed parameters
+    shared_params;
+    rho1 = seabed.rho_water;
+    c1 = sound_speed(depth);
+    rho2 = seabed.rho_bottom;
+    c2 = seabed.c_bottom; 
 
     Z1 = rho1 * c1;
     Z2 = rho2 * c2;
