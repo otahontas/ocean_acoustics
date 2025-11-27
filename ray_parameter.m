@@ -25,6 +25,7 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
     eigenray_indices = zeros(1, max_eigenrays);
     eigenray_n_bottom = zeros(1, max_eigenrays);
     eigenray_n_surface = zeros(1, max_eigenrays);
+    eigenray_path_length = zeros(1, max_eigenrays);
     eigenray_count = 0;  % Track actual count
 
     normal_rays = cell(1, ceil(max_eigenrays/20));  % Pre-allocate for 1/20 of rays
@@ -58,6 +59,7 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
 
             % === ABSORPTION ===
             total_length_m = sum(segment_lengths);
+            eigenray_path_length(eigenray_count) = total_length_m;
             total_length_km = total_length_m / 1000; % switch to km units
             alpha_dB_per_km = thorp_absorption(freq/1000); % alpha is in dB/km
             TL_abs_dB = alpha_dB_per_km * total_length_km;
@@ -105,6 +107,7 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
     eigenray_indices = eigenray_indices(1:eigenray_count);
     eigenray_n_bottom = eigenray_n_bottom(1:eigenray_count);
     eigenray_n_surface = eigenray_n_surface(1:eigenray_count);
+    eigenray_path_length = eigenray_path_length(1:eigenray_count);
     normal_rays = normal_rays(1:normal_ray_count);
 
     fprintf('Total eigenrays found: %d\n', eigenray_count);
@@ -221,8 +224,9 @@ use_simple_spreading = false;   % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
              'HandleVisibility', 'off');
         A_tot = eigenray_geom_spreading(i) * eigenray_absorption(i) * eigenray_reflection(i);
         A_tot_dB = 20*log10(abs(A_tot));
-        fprintf("Eg-ray %d: Bounces %dB/%dS, Time = %.3f s, Arri angle = %.2f deg, A_tot = %.2f dB\n", ...
-                 i, eigenray_n_bottom(i), eigenray_n_surface(i), eigenray_times(i), eigenray_arrival_angle(i), A_tot_dB);
+        fprintf("Eigenray %d: Launch angle = %.2f°, Arrival angle = %.2f°, Bounces: %dB/%dS, Path length = %.2f m, Time = %.3f s, Amp = %.2f dB\n", ...
+                 i, rad2deg(source.launch_angles(eigenray_indices(i))), eigenray_arrival_angle(i), ...
+                 eigenray_n_bottom(i), eigenray_n_surface(i), eigenray_path_length(i), eigenray_times(i), A_tot_dB);
     end
 
     plot(0, source.depth, 'bs', 'MarkerFaceColor','b');

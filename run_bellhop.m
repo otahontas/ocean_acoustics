@@ -32,6 +32,5 @@ ylabel('Depth (m)');
 saveas(gcf, 'figures/bellhop_rays.png');
 fprintf('Saved: figures/bellhop_rays.png\n');
 
-% Keep scenario.ray in main directory, clean up at/ directory copies
-fprintf('\nBellhop complete. Ready for 3-model comparison.\n');
-fprintf('Run: generate_comparisons.m\n');
+% Keep scenario.ray in main directory
+fprintf('\nBellhop complete. scenario.ray ready for comparison.\n');

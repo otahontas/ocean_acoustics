@@ -159,7 +159,12 @@ for ia = 1:length(angles)
                     entry.tt = tpath(1:idx);
                     entry.z_at_r = z_at_r;
                     entry.t_at_r = t_at_r;
-                    
+
+                    % CALCULATE ARRIVAL ANGLE
+                    dr_arrival = r2 - r1;
+                    dz_arrival = z2 - z1;
+                    entry.arrival_angle = rad2deg(atan2(dz_arrival, dr_arrival));
+
                     % CALCULATING EIGENRAY PATH LENGTH
                     finite_idx = find(~isnan(rpath(1:idx)));
                     pos_i1 = find(finite_idx == i1, 1);
@@ -213,8 +218,8 @@ fprintf('\n=== EIGENRAY DIAGNOSTICS ===\n');
 fprintf('Found %d eigenrays:\n', length(eigenrays));
 for k = 1:length(eigenrays)
     er = eigenrays{k};
-    fprintf('Eigenray %d: Launch angle = %.2f°, Bounces: %dB/%dS, Time = %.2f s, Amp = %.2f dB\n', ...
-            k, rad2deg(er.theta0), er.n_bottom, er.n_surface, er.t_at_r, er.A_at_r);
+    fprintf('Eigenray %d: Launch angle = %.2f°, Arrival angle = %.2f°, Bounces: %dB/%dS, Path length = %.2f m, Time = %.3f s, Amp = %.2f dB\n', ...
+            k, rad2deg(er.theta0), er.arrival_angle, er.n_bottom, er.n_surface, er.path_len, er.t_at_r, er.A_at_r);
 end
 fprintf('============================\n\n');
 
