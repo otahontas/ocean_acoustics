@@ -32,5 +32,5 @@ ssp.epsilon = 0.00737;      % Munk profile scale parameter
 
 %% Seabed parameters (Jensen Table 1.3: Sandy seabed)
 seabed.rho_water = 1000;    % water density (kg/m³)
-seabed.rho_bottom = 1800;   % bottom density (kg/m³)
-seabed.c_bottom = 1700;     % bottom sound speed (m/s)
+seabed.rho_bottom = 1900;   % bottom density (kg/m³) - ρb/ρw = 1.9
+seabed.c_bottom = 1650;     % bottom sound speed (m/s) - cp/cw = 1.1
