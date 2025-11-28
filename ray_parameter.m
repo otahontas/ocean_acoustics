@@ -260,13 +260,18 @@ end
     plot(r_s/1000, z_s, 'kp', 'MarkerFaceColor','k', 'MarkerSize',10);  % source
     plot(r_rec/1000, z_rec, 'mo', 'MarkerFaceColor','m', 'MarkerSize',8); % receiver
 
-    xlabel('Range (km)'); 
+    xlabel('Range (km)');
     ylabel('Depth (m)');
     set(gca,'YDir','reverse');
     title('Ray fan and eigenrays');
-    xlim([0 r_rec/1000]); 
-    ylim([z_min - 200 z_max+400]); 
+    xlim([0 r_rec/1000]);
+    ylim([z_min - 200 z_max+400]);
     grid on;
+
+    % Save figure
+    if ~exist('figures', 'dir'), mkdir('figures'); end
+    saveas(gcf, 'figures/rayparam_rays.png');
+    fprintf('Saved: figures/rayparam_rays.png\n');
 
     % ===============================
     %  IMPULSE RESPONSE —
@@ -295,6 +300,10 @@ end
     title('Impulse Response at Receiver (dB scale)');
     grid on;
     ylim([Amax-80 Amax+3]);
+
+    % Save figure
+    saveas(gcf, 'figures/rayparam_impulse.png');
+    fprintf('Saved: figures/rayparam_impulse.png\n');
 
 %% ======================================================
 % trace_ray returns ray_path, segment_times, segment_lengths, bounce info

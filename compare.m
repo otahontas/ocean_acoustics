@@ -13,13 +13,17 @@ fprintf(fid, '1. C-LINEAR CURVATURE MODEL\n');
 fprintf(fid, '----------------------------\n');
 clinear_curvature;
 clinear_eigenrays = eigenrays;
-fprintf(fid, 'Total eigenrays: %d\n\n', length(clinear_eigenrays));
+clinear_count = length(clinear_eigenrays);
+fprintf(fid, 'Total eigenrays: %d\n\n', clinear_count);
 for k = 1:length(clinear_eigenrays)
     er = clinear_eigenrays{k};
     fprintf(fid, 'Eigenray %d: θ₀=%.2f°, θᵣ=%.2f°, Bounces=%dB/%dS, L=%.2fm, T=%.3fs, A=%.2fdB\n', ...
         k, rad2deg(er.theta0), er.arrival_angle, er.n_bottom, er.n_surface, er.path_len, er.t_at_r, er.A_at_r);
 end
 fprintf(fid, '\n');
+
+% Save clinear_count before ray_parameter clears it
+save('temp_clinear_count.mat', 'clinear_count');
 
 %% Run Ray Parameter model
 fprintf('Running Ray Parameter model...\n');
@@ -47,12 +51,22 @@ for k = 1:ray_param_count
         ray_param_path_length(k), ray_param_times(k), A_tot_dB);
 end
 fprintf(fid, '\n');
+
+% Load clinear_count back and save both counts before Bellhop clears everything
+load('temp_clinear_count.mat', 'clinear_count');
+delete('temp_clinear_count.mat');
+save('temp_counts.mat', 'clinear_count', 'ray_param_count');
+
 fclose(fid);  % Close before run_bellhop clears everything
 
 %% Run Bellhop
 fprintf('Running Bellhop...\n');
 run_bellhop;
 bellhop_count = Narr;
+
+% Load counts saved before Bellhop cleared everything
+load('temp_counts.mat', 'clinear_count', 'ray_param_count');
+delete('temp_counts.mat');
 
 % Reopen file in append mode to add Bellhop data
 fid = fopen('comparison_results.txt', 'a');
@@ -67,7 +81,7 @@ fprintf(fid, 'SUMMARY COMPARISON\n');
 fprintf(fid, '========================================\n\n');
 fprintf(fid, 'Model                    | Eigenrays Found\n');
 fprintf(fid, '-------------------------|----------------\n');
-fprintf(fid, 'C-Linear Curvature       | %d\n', length(clinear_eigenrays));
+fprintf(fid, 'C-Linear Curvature       | %d\n', clinear_count);
 fprintf(fid, 'Ray Parameter            | %d\n', ray_param_count);
 fprintf(fid, 'Bellhop (reference)      | %d\n', bellhop_count);
 fprintf(fid, '\n');
