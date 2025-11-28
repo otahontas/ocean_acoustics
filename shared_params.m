@@ -4,23 +4,23 @@
 
 %% Environment parameters
 env.max_depth = 8000;       % maximum depth (m)
-env.max_range = 18000;      % maximum range (m) - 15km + 20% buffer
+env.max_range = 100000;     % maximum range (m)
 env.z_min = 0;              % surface depth (m)
 env.z_max = 8000;           % bottom depth (m)
 
 %% Source parameters
-source.depth = 100;         % source depth (m) - shallow source
+source.depth = 1000;        % source depth (m)
 source.range = 0;           % source range (m)
 
 %% Receiver parameters
-receiver.depth = 2000;      % receiver depth (m) - deep receiver below sound channel
-receiver.range = 15000;     % receiver range (m) - 15km medium range
-receiver.tolerance = 10;    % eigenray hit tolerance (m)
+receiver.depth = 1000;      % receiver depth (m)
+receiver.range = 100000;    % receiver range (m)
+receiver.tolerance = 5;     % eigenray hit tolerance (m)
 
 %% Ray fan parameters
-ray_fan.angle_min = -20;    % minimum launch angle (degrees) - narrower for speed
-ray_fan.angle_max = 20;     % maximum launch angle (degrees) - narrower for speed
-ray_fan.num_angles = 501;   % number of rays in fan (reduced for faster computation)
+ray_fan.angle_min = -30;    % minimum launch angle (degrees)
+ray_fan.angle_max = 30;     % maximum launch angle (degrees)
+ray_fan.num_angles = 10001; % number of rays in fan
 
 %% Acoustic parameters
 acoustic.frequency = 100;   % source frequency (Hz)
