@@ -426,10 +426,9 @@ end
 
 %% Sound speed profile
 function c = sound_speed(z)
-    shared_params;
-    z0 = ssp.z0;
-    c0 = ssp.c0;
-    eps = ssp.epsilon;
+    z0 = 1300.0;
+    c0 = 1500.0;
+    eps = 0.00737;
     zbar = 2 * (z - z0) / z0;
     c = c0 * (1 + eps * (zbar - 1 + exp(-zbar)));
 end
@@ -438,21 +437,18 @@ end
 %% Thorp absorption formula % 1.47 in the book p36
 function alpha = thorp_absorption(f_kHz)
     f2 = f_kHz.^2;
-    alpha = 0.11 * f2 ./ (1 + f2) ...
-          + 44 * f2 ./ (4100 + f2) ...
-          + 2.75e-4 * f2 ...
-          + 0.003;
+    alpha = 3.3e-3 + (0.11 * f2) ./ (1 + f2) ...
+          + (44 * f2) ./ (4100 + f2) + 3.0e-4 * f2;
 end
 
 
 %% Bottom reflection coefficient
 function R = bottom_reflection(theta_i, depth)
 
-    shared_params;
-    rho1 = seabed.rho_water;
+    rho1 = 1000;
     c1 = sound_speed(depth);
-    rho2 = seabed.rho_bottom;
-    c2 = seabed.c_bottom; 
+    rho2 = 1900;
+    c2 = 1650;
 
     Z1 = rho1 * c1;
     Z2 = rho2 * c2;
