@@ -1,39 +1,42 @@
-%% Discretized c linear model
+%% Discretized c Linear Model
 % Based on the c linear method described by Jensen on p. 209-211
 % Uses local curvature R = c(z) / ( g_local * cos(theta) )
 % Integrates dx/ds = cos(theta), dz/ds = sin(theta), dtheta/ds = g_local*cos(theta)/c
 
-% clear; close all; clc;  % COMMENTED OUT: Don't clear when called from comparison script
+clear; close all; clc;
 
-%% ----------------- Load shared parameters -----------------
-shared_params;
+%% ----------------- User parameters -----------------
 
-% Map shared parameters to local variables for backward compatibility
-z_s = source.depth;
-r_s = source.range;
-r_rec = receiver.range;
-z_rec = receiver.depth;
-depth_tol = receiver.tolerance;
+% Source/receiver
+z_s = 1000;    % source depth (m)
+r_s = 0;       % source range (m)
+r_rec = 100000; % receiver range (m)
+z_rec = 1000;  % receiver depth (m)
 
-angles_deg = linspace(ray_fan.angle_min, ray_fan.angle_max, ray_fan.num_angles);
+% Ray fan
+angles_deg = linspace(-30,30,10001);
 angles = deg2rad(angles_deg);
+depth_tol = 5; % eigenray hit tolerance (m)
 
-% Numerical stepping (model-specific)
+% Numerical stepping
 ds = 30.0; % arc-length step (m)
 max_steps = 5e7;
-max_range = receiver.range * 1.2;
+max_range = r_rec * 1.2;
 
-z_min = env.z_min;
-z_max = env.z_max;
+% Boundaries
+z_min = 0; % surface (m)
+z_max = 8000; % bottom (m)
 
+% Transfer loss
 A0 = 1.0; % initial amplitude at source
-f = acoustic.frequency;
-r_transition = receiver.range; % transition range from spherical spreading to cylindrical
+f = 100; % frequency of source signal (for absorption coefficient calculation)
+r_transition = z_max; % transition range from spherical spreading to cylindrical
 
 %% ----------------- Sound speed and derivative (Munk) -----------------
-c0 = ssp.c0;
-z0_munk = ssp.z0;
-eps_munk = ssp.epsilon; 
+% Munk SSP
+c0 = 1500;           % reference speed (m/s)
+z0_munk = 1300;      % reference depth (m)
+eps_munk = 0.00737;     % scale epsilon 
 
 c_of_z = @(z) c0 .* ( 1 + eps_munk .* ((2*(z - z0_munk)./z0_munk) - 1 + exp(-2*(z - z0_munk)./z0_munk)));
 % analytic derivative of Munk
@@ -64,10 +67,6 @@ for ia = 1:length(angles)
     step = 0;
     found = false;
 
-    % Bounce counting
-    n_surface_bounces = 0;
-    n_bottom_bounces = 0;
-
     % Track last two finite indices to avoid find()
     last_finite_idx = 1;
     second_last_finite_idx = 0;
@@ -94,12 +93,10 @@ for ia = 1:length(angles)
             if z_new < z_min  % surface hit
                 alpha = (z_min - z) / (z_new - z);
                 z_hit = z_min;
-                n_surface_bounces = n_surface_bounces + 1;
             else % bottom hit
                 alpha = (z_max - z) / (z_new - z);
                 z_hit = z_max;
-                n_bottom_bounces = n_bottom_bounces + 1;
-                c_at_hit = c_of_z(z_hit);
+                c_at_hit = c_of_z(z_hit); 
                 A_reflection = A_reflection * bottom_reflection(theta_new, c_at_hit);
             end
             alpha = max(0,min(1,alpha));
@@ -159,12 +156,7 @@ for ia = 1:length(angles)
                     entry.tt = tpath(1:idx);
                     entry.z_at_r = z_at_r;
                     entry.t_at_r = t_at_r;
-
-                    % CALCULATE ARRIVAL ANGLE
-                    dr_arrival = r2 - r1;
-                    dz_arrival = z2 - z1;
-                    entry.arrival_angle = rad2deg(atan2(dz_arrival, dr_arrival));
-
+                    
                     % CALCULATING EIGENRAY PATH LENGTH
                     finite_idx = find(~isnan(rpath(1:idx)));
                     pos_i1 = find(finite_idx == i1, 1);
@@ -187,19 +179,17 @@ for ia = 1:length(angles)
                     ABSORPTION_abs_dB = alpha_dB_per_km * path_len_km;
                     A_abs = 10^(-ABSORPTION_abs_dB / 20);
                     
-                    % TRANSMISSION LOSS WITH 1 KM SPHERICAL ATTENUATION, REST
-                    % CYLINDRICAL
+                    % SPREADING LOSS WITH SPHERICAL ATTENUATION IN NEAR 
+                    % FIELD, CYLINDRICAL IN FAR FIELD
                     if path_len > r_transition
-                        TLdB = 20 * log10(r_transition) + 10*log10(path_len-r_transition);
-                    else
-                        TLdB = 20 * log10(path_len);
+                        SLdB = 20 * log10(r_transition) + 10*log10(path_len-r_transition);
+                    else 
+                        SLdB = 20 * log10(path_len);
                     end
-                    TL_abs = 10^(-TLdB / 20);
+                    SL_abs = 10^(-SLdB / 20);
                     entry.path_len = path_len;
-                    amplitudeLinear =  A0 * A_abs * TL_abs * A_reflection;
+                    amplitudeLinear =  A0 * A_abs * SL_abs * A_reflection;
                     entry.A_at_r = 20*log10(amplitudeLinear);
-                    entry.n_surface = n_surface_bounces;
-                    entry.n_bottom = n_bottom_bounces;
                     eigenrays{end+1} = entry;
                     found = true;
                 end
@@ -212,16 +202,6 @@ for ia = 1:length(angles)
         end
     end
 end
-
-%% ----------------- Print eigenray diagnostics -----------------
-fprintf('\n=== EIGENRAY DIAGNOSTICS ===\n');
-fprintf('Found %d eigenrays:\n', length(eigenrays));
-for k = 1:length(eigenrays)
-    er = eigenrays{k};
-    fprintf('Eigenray %d: Launch angle = %.2f°, Arrival angle = %.2f°, Bounces: %dB/%dS, Path length = %.2f m, Time = %.3f s, Amp = %.2f dB\n', ...
-            k, rad2deg(er.theta0), er.arrival_angle, er.n_bottom, er.n_surface, er.path_len, er.t_at_r, er.A_at_r);
-end
-fprintf('============================\n\n');
 
 %% ----------------- Plotting (fan + eigenrays) -----------------
 figure('Color','w','Position',[200 200 1000 600]); hold on; box on;
@@ -296,8 +276,6 @@ xlabel('Range (km)'); ylabel('Depth (m)');
 set(gca,'YDir','reverse');
 title('Ray fan and eigenrays using discretized curvature');
 xlim([0 r_rec/1000]); ylim([z_min - 200 z_max+400]); grid on;
-saveas(gcf, 'figures/clinear_curvature_rays.png');
-fprintf('Saved: figures/clinear_curvature_rays.png\n');
 
 %% ----------------- Arrival time vs Amplitude plot  -----------------
 
@@ -312,7 +290,7 @@ if ~isempty(eigenrays)
         angles0(k) = rad2deg(eigenrays{k}.theta0); % launch angle (degrees)
         pathlens(k) = eigenrays{k}.path_len;
     end
-
+    
     valid = isfinite(times) & isfinite(amps);
     times = times(valid);
     amps  = amps(valid);
@@ -336,25 +314,20 @@ if ~isempty(eigenrays)
     xlabel('Arrival time (s)');
     ylabel('Amplitude (dB)');
     title('Eigenray Arrival Time vs Amplitude');
-    time_range = max(times) - min(times);
-    xlim([min(times)-0.05*time_range, max(times)+0.05*time_range]);
+    xlim([min(times)-0.05*range(times), max(times)+0.05*range(times)]);
     topPad = 0.15 * (maxAmp - baseline + eps);
     bottomPad = 0.10 * (maxAmp - baseline + eps);
     ylim([baseline, maxAmp + topPad]);
     grid on;
-    saveas(gcf, 'figures/clinear_curvature_arrivals.png');
-    fprintf('Saved: figures/clinear_curvature_arrivals.png\n');
 else
     disp('No eigenrays found to plot arrival times/amplitudes.');
 end
 
 % Reflection and frequency absorption functions
 function R = bottom_reflection(theta_i, c1)
-    % Use shared seabed parameters
-    shared_params;
-    rho1 = seabed.rho_water;
-    rho2 = seabed.rho_bottom;
-    c2 = seabed.c_bottom;
+    rho1 = 1000;
+    % Sandy seabed
+    rho2 = 1900;   c2 = 1650; 
     Z1 = rho1 * c1;
     Z2 = rho2 * c2;
     sin_theta_t = (c1/c2) * sin(theta_i);
