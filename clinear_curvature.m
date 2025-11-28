@@ -3,7 +3,16 @@
 % Uses local curvature R = c(z) / ( g_local * cos(theta) )
 % Integrates dx/ds = cos(theta), dz/ds = sin(theta), dtheta/ds = g_local*cos(theta)/c
 
-clear; close all; clc;
+% Only clear if not being called from compare.m
+if ~exist('fid', 'var')
+    clear; close all; clc;
+else
+    % Save fid to file, clear, then restore
+    save('.clinear_fid_temp.mat', 'fid');
+    clear; close all; clc;
+    load('.clinear_fid_temp.mat');
+    delete('.clinear_fid_temp.mat');
+end
 
 %% ----------------- User parameters -----------------
 shared_params;
@@ -68,6 +77,10 @@ for ia = 1:length(angles)
     step = 0;
     found = false;
 
+    % Bounce counting
+    n_surface_bounces = 0;
+    n_bottom_bounces = 0;
+
     % Track last two finite indices to avoid find()
     last_finite_idx = 1;
     second_last_finite_idx = 0;
@@ -94,10 +107,12 @@ for ia = 1:length(angles)
             if z_new < z_min  % surface hit
                 alpha = (z_min - z) / (z_new - z);
                 z_hit = z_min;
+                n_surface_bounces = n_surface_bounces + 1;
             else % bottom hit
                 alpha = (z_max - z) / (z_new - z);
                 z_hit = z_max;
-                c_at_hit = c_of_z(z_hit); 
+                n_bottom_bounces = n_bottom_bounces + 1;
+                c_at_hit = c_of_z(z_hit);
                 A_reflection = A_reflection * bottom_reflection(theta_new, c_at_hit);
             end
             alpha = max(0,min(1,alpha));
@@ -157,7 +172,12 @@ for ia = 1:length(angles)
                     entry.tt = tpath(1:idx);
                     entry.z_at_r = z_at_r;
                     entry.t_at_r = t_at_r;
-                    
+
+                    % CALCULATE ARRIVAL ANGLE
+                    dr_arrival = r2 - r1;
+                    dz_arrival = z2 - z1;
+                    entry.arrival_angle = rad2deg(atan2(dz_arrival, dr_arrival));
+
                     % CALCULATING EIGENRAY PATH LENGTH
                     finite_idx = find(~isnan(rpath(1:idx)));
                     pos_i1 = find(finite_idx == i1, 1);
@@ -191,6 +211,8 @@ for ia = 1:length(angles)
                     entry.path_len = path_len;
                     amplitudeLinear =  A0 * A_abs * SL_abs * A_reflection;
                     entry.A_at_r = 20*log10(amplitudeLinear);
+                    entry.n_surface = n_surface_bounces;
+                    entry.n_bottom = n_bottom_bounces;
                     eigenrays{end+1} = entry;
                     found = true;
                 end
@@ -315,7 +337,8 @@ if ~isempty(eigenrays)
     xlabel('Arrival time (s)');
     ylabel('Amplitude (dB)');
     title('Eigenray Arrival Time vs Amplitude');
-    xlim([min(times)-0.05*range(times), max(times)+0.05*range(times)]);
+    time_range = max(times) - min(times);
+    xlim([min(times)-0.05*time_range, max(times)+0.05*time_range]);
     topPad = 0.15 * (maxAmp - baseline + eps);
     bottomPad = 0.10 * (maxAmp - baseline + eps);
     ylim([baseline, maxAmp + topPad]);

@@ -1,5 +1,14 @@
-function Full_model()
+% Ray Parameter Model - converted to script for compare.m
+% Only clear if not being called from compare.m
+if ~exist('fid', 'var')
     close all; clear; clc;
+else
+    % Save fid to file, clear, then restore
+    save('.rayparam_fid_temp.mat', 'fid');
+    close all; clear; clc;
+    load('.rayparam_fid_temp.mat');
+    delete('.rayparam_fid_temp.mat');
+end
 
     shared_params;
 
@@ -26,6 +35,10 @@ function Full_model()
     eigenray_arrival_angle = []; %%% <<< NEW: ARRIVAL ANGLE >>>
     eigenray_geom_spreading = []; %%% <<< NEW: GEOMETRICAL SPREADING >>>
     eigenray_indices = [];       %%% <<< NEW: INDEX OF LAUNCH ANGLE >>>
+    eigenray_n_bottom = [];      %%% <<< NEW: BOTTOM BOUNCE COUNT >>>
+    eigenray_n_surface = [];     %%% <<< NEW: SURFACE BOUNCE COUNT >>>
+    eigenray_path_length = [];   %%% <<< NEW: PATH LENGTH >>>
+    eigenray_count = 0;          %%% <<< NEW: TOTAL COUNT >>>
     normal_rays = {};
     
     % === ALWAYS SELECT EXACTLY 100 NORMAL RAYS FOR PLOTTING ===
@@ -47,6 +60,7 @@ function Full_model()
 
         % Check receiver hit
         if abs(ray_path(end,2) - receiver.depth) <= receiver.tol
+            eigenray_count = eigenray_count + 1;
             eigenrays{end+1} = ray_path;
             eigenray_indices(end+1) = i;  % remember which launch angle produced this eigenray
 
@@ -56,6 +70,7 @@ function Full_model()
 
             % === ABSORPTION ===
             total_length_m = sum(segment_lengths);
+            eigenray_path_length(end+1) = total_length_m;
             total_length_km = total_length_m / 1000; % switch to km units
             alpha_dB_per_km = thorp_absorption(freq/1000); % alpha is in dB/km
             TL_abs_dB = alpha_dB_per_km * total_length_km;
@@ -64,14 +79,20 @@ function Full_model()
 
             % === REFLECTION LOSSES ===
             A_ref = 1;
+            n_surf = 0;
+            n_bot = 0;
             for b = 1:length(bounce_types) % multiply all the reflections together
                 if bounce_types{b} == "surface"
                     A_ref = A_ref * (-1);   % perfect pressure-release
+                    n_surf = n_surf + 1;
                 else
                     A_ref = A_ref * bottom_reflection(bounce_angles(b), env.max_depth);
+                    n_bot = n_bot + 1;
                 end
             end
             eigenray_reflection(end+1) = A_ref;
+            eigenray_n_surface(end+1) = n_surf;
+            eigenray_n_bottom(end+1) = n_bot;
 
             % === ARRIVAL ANGLE ESTIMATION ===
             dx = ray_path(end,1) - ray_path(end-1,1);
@@ -274,9 +295,6 @@ function Full_model()
     title('Impulse Response at Receiver (dB scale)');
     grid on;
     ylim([Amax-80 Amax+3]);
-
-end
-
 
 %% ======================================================
 % trace_ray returns ray_path, segment_times, segment_lengths, bounce info
