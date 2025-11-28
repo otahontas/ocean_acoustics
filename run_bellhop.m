@@ -102,3 +102,8 @@ for k = 1:Narr
 end
 
 fprintf('============================\n\n');
+
+%% ==================== CLEANUP ====================
+% Remove temporary files created during execution
+delete('scenario_arrivals.env');
+delete('at/scenario_arrivals.env');
