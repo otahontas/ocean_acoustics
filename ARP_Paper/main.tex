@@ -312,7 +312,7 @@ All three models were tested using identical environmental parameters: a Munk so
 
 \subsection{Eigenray Detection}
 
-The three models found significantly different numbers of eigenrays connecting the source to the receiver. The c-linear curvature model detected 54 eigenrays, the ray parameter model found 56, while Bellhop identified 24. This 2-2.3x difference reflects distinct detection approaches rather than modeling accuracy. The custom ray-based methods scan through a dense ray fan and flag any rays passing within a tolerance of the receiver depth. Bellhop uses a beam tracing approach with adaptive step sizing and beam convergence criteria, identifying only the energetically dominant paths.
+The three models found significantly different numbers of eigenrays connecting the source to the receiver. Both the c-linear curvature model and the ray parameter model detected 54 eigenrays, while Bellhop identified 24. This 2-2.3x difference reflects distinct detection approaches rather than modeling accuracy. The custom ray-based methods scan through a dense ray fan and flag any rays passing within a tolerance of the receiver depth. Bellhop uses a beam tracing approach with adaptive step sizing and beam convergence criteria, identifying only the energetically dominant paths.
 
 Figure \ref{fig:clinear_rays} shows the eigenray paths for the c-linear curvature model, while Figure \ref{fig:rayparam_rays} shows the ray parameter model results. Both models capture the characteristic deep-water propagation pattern with rays refracting through the Munk channel. The non-bouncing eigenrays launched near horizontal angles ($\theta_0 \approx \pm 4-5^\circ$) remain trapped in the sound channel, while steeper launch angles produce rays that reflect from the surface and bottom.
 
@@ -366,24 +366,589 @@ The ray parameter method further refines amplitude calculation by tracking the J
 
 Bellhop identifies fewer eigenrays because it selects beams based on energy contribution rather than geometric proximity. The 24 eigenrays Bellhop found likely represent the dominant propagation paths that carry most of the acoustic energy. The custom models, by scanning through 10,001 rays with a fixed tolerance criterion, capture many weakly excited paths that contribute minimally to the total field. This distinction is important for applications: if only the arrival structure is needed, the custom models provide more detail. If accurate pressure field prediction is required, Bellhop's beam summation with proper phase handling would be more appropriate.
 
-One limitation of the custom models is their treatment of boundary reflections. Both assume perfect specular reflection with phase reversal, which is realistic for the sea surface but oversimplified for the bottom. Real sediment layers introduce frequency-dependent reflection loss and phase shifts. The c-linear model applies a fixed $-35$ dB penalty per bottom bounce, which approximates measured losses for sandy bottoms but ignores angle dependence. The ray parameter model does not include explicit bottom loss, which explains why some of its bouncing rays show unrealistically high amplitudes.
+One limitation of the custom models is their treatment of boundary reflections. Both assume perfect specular reflection with phase reversal at the surface, which is realistic for the air-water interface. At the bottom, both models compute angle-dependent reflection coefficients using the fluid-fluid boundary formula with the incident angle from Snell's law. Real sediment layers introduce additional frequency-dependent losses and phase shifts from layered structure that are not captured by the simple halfspace model used here.
 
-Neither custom model includes absorption loss from the medium itself. At 100 Hz, seawater absorption is negligible over 100km ($\sim$0.5 dB total using Equation \ref{eq:attenuationfrequency}), but at higher frequencies this would become significant. Both models also neglect volume scattering from marine life and small-scale fluctuations in the sound speed profile, which would introduce additional spreading and loss mechanisms.
+Both custom models include frequency-dependent absorption loss using Equation \ref{eq:attenuationfrequency}. At 100 Hz, seawater absorption contributes negligibly to transmission loss over 100km ($\sim$0.5 dB total), but at higher frequencies this would become significant. Both models neglect volume scattering from marine life and small-scale fluctuations in the sound speed profile, which would introduce additional spreading and loss mechanisms.
 
 The computational performance difference between the methods is substantial. The geometric ray tracing method completes in under a second due to its simple integration steps. The c-linear method takes slightly longer because it computes circular arc parameters at each step. The ray parameter method, despite optimizations like pre-allocated arrays and receiver-only data tracking, runs slower due to the Jacobian calculation. Bellhop's adaptive step sizing and beam tracking make it more expensive per ray, but it launches fewer beams to achieve similar coverage.
 
 \section{CONCLUSION}
 
-We implemented two simple ray-based underwater sound propagation models and compared them to the established Bellhop beam tracer. The c-linear curvature method and ray parameter method both successfully reproduce the geometric structure of long-range deep-water propagation through a Munk sound speed profile. The models identified 54-56 eigenrays connecting a source at 1000m depth to a receiver at 100km range, compared to 24 eigenrays found by Bellhop.
+We implemented two simple ray-based underwater sound propagation models and compared them to the established Bellhop beam tracer. The c-linear curvature method and ray parameter method both successfully reproduce the geometric structure of long-range deep-water propagation through a Munk sound speed profile. Both models identified 54 eigenrays connecting a source at 1000m depth to a receiver at 100km range, compared to 24 eigenrays found by Bellhop.
 
 The difference in eigenray count reflects detection philosophy rather than accuracy. The custom models scan densely spaced rays and report all paths passing near the receiver, while Bellhop selects energetically dominant beams. For impulse response prediction, the custom methods provide detailed arrival structure but require careful interpretation of amplitude predictions. The ray parameter model's Jacobian spreading calculation captures realistic focusing effects but shows numerical sensitivity near caustics. The c-linear model's simpler geometric spreading produces stable results but misses fine-scale amplitude variations.
 
-Both custom models assume idealized boundary conditions and neglect absorption and volume scattering. These approximations are acceptable for the 100 Hz, 100km scenario tested but would require refinement at higher frequencies or in shallow water environments. For accurate pressure field prediction including interference effects, methods like Bellhop that handle coherent beam summation remain necessary.
+Both custom models include frequency-dependent absorption loss but neglect volume scattering. The boundary conditions use angle-dependent reflection coefficients but assume simplified halfspace sediment models. These approximations are acceptable for the 100 Hz, 100km scenario tested but would require refinement at higher frequencies or in shallow water environments. For accurate pressure field prediction including interference effects, methods like Bellhop that handle coherent beam summation remain necessary.
 
 The work demonstrates that ray-based methods provide computational efficiency and physical insight for long-range propagation problems where geometric effects dominate over wave phenomena.
 
 %Bibliography
 \bibliographystyle{jaes}
 \bibliography{jaes}
+
+\appendix
+
+\section{Ray Parameter Model Implementation}
+
+The ray parameter model uses geometric ray tracing with Jacobian-based geometrical spreading. The implementation computes ray paths, eigenray detection, and comprehensive amplitude calculations including absorption, reflection, and geometrical spreading losses.
+
+\begin{verbatim}
+function Full_model()
+    close all; clear; clc;
+
+    % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
+    % 0 = Jensen Jacobian model (complex spreading)
+    % 1 = Simple spherical spreading A = 1/(4πR)
+    % 2 = Hybrid: 1 km spherical, then cylindrical
+    spreading_mode = 0;
+
+    % Environment parameters
+    env.max_depth = 8000;
+    env.max_range = 100000;
+
+    % Source parameters
+    source.depth = 1000;
+    source.launch_angles = deg2rad(linspace(-25, 25, 50000));
+
+    % Receiver parameters
+    receiver.depth = 1000;
+    receiver.rng = 100000;
+    receiver.tol = 5;
+
+    % Acoustic parameters
+    freq = 100;   % Hz
+
+    % Storage
+    eigenrays = {};
+    eigenray_times = [];
+    eigenray_absorption = [];
+    eigenray_reflection = [];
+    eigenray_arrival_angle = [];
+    eigenray_geom_spreading = [];
+    eigenray_indices = [];
+    normal_rays = {};
+
+    % Select exactly 100 normal rays for plotting
+    num_normals = 100;
+    normal_ray_indices = round(linspace(1, ...
+        length(source.launch_angles), num_normals));
+
+    % Store all rays to compute Jacobian-based spreading
+    all_rays = cell(length(source.launch_angles), 1);
+
+    % Main loop
+    for i = 1:length(source.launch_angles)
+        theta0 = source.launch_angles(i);
+        [ray_path, segment_times, segment_lengths, ...
+            bounce_types, bounce_angles] = ...
+            trace_ray(env, source, theta0);
+
+        % Store full ray path for later Jacobian computation
+        all_rays{i} = ray_path;
+
+        % Check receiver hit
+        if abs(ray_path(end,2) - receiver.depth) ...
+                <= receiver.tol
+            eigenrays{end+1} = ray_path;
+            eigenray_indices(end+1) = i;
+
+            % Travel time
+            total_time = sum(segment_times);
+            eigenray_times(end+1) = total_time;
+
+            % Absorption
+            total_length_m = sum(segment_lengths);
+            total_length_km = total_length_m / 1000;
+            alpha_dB_per_km = thorp_absorption(freq/1000);
+            TL_abs_dB = alpha_dB_per_km * total_length_km;
+            A_abs = 10^(-TL_abs_dB / 20);
+            eigenray_absorption(end+1) = A_abs;
+
+            % Reflection losses
+            A_ref = 1;
+            for b = 1:length(bounce_types)
+                if bounce_types{b} == "surface"
+                    A_ref = A_ref * (-1);
+                else
+                    A_ref = A_ref * ...
+                        bottom_reflection(bounce_angles(b), ...
+                        env.max_depth);
+                end
+            end
+            eigenray_reflection(end+1) = A_ref;
+
+            % Arrival angle estimation
+            dx = ray_path(end,1) - ray_path(end-1,1);
+            dz = ray_path(end,2) - ray_path(end-1,2);
+            theta_arrival = atan2(dz, dx);
+            eigenray_arrival_angle(end+1) = ...
+                rad2deg(theta_arrival);
+        end
+
+        % Store exactly 100 evenly-spaced normal rays
+        if ismember(i, normal_ray_indices)
+            normal_rays{end+1} = ray_path;
+        end
+    end
+
+    % Geometrical spreading models
+    dtheta0 = source.launch_angles(2) - ...
+        source.launch_angles(1);
+    c_src = sound_speed(source.depth);
+    c_rec = sound_speed(receiver.depth);
+
+    eigenray_geom_spreading = zeros(size(eigenrays));
+
+    for k = 1:numel(eigenrays)
+        idx = eigenray_indices(k);
+        theta0 = source.launch_angles(idx);
+        ray_main = all_rays{idx};
+
+        % Intersection at receiver
+        [r_main, theta_receiver, success_main] = ...
+            range_at_depth(ray_main, receiver.depth);
+
+        if ~success_main
+            s_fallback = arc_length(ray_main);
+            eigenray_geom_spreading(k) = ...
+                1/(4*pi*s_fallback);
+            continue;
+        end
+
+        % JENSEN JACOBIAN MODEL
+        % Neighbor rays → dr/dtheta
+        idx_neigh = [];
+        if idx < length(source.launch_angles)
+            idx_neigh(end+1) = idx+1;
+        end
+        if idx > 1
+            idx_neigh(end+1) = idx-1;
+        end
+
+        dr_dtheta = NaN;
+        for j = idx_neigh
+            rayN = all_rays{j};
+            [rN, ~, ok] = range_at_depth(rayN, ...
+                receiver.depth);
+            if ok
+                dth = source.launch_angles(j) - theta0;
+                dr_dtheta = (rN - r_main)/dth;
+                break;
+            end
+        end
+
+        if isnan(dr_dtheta) || ...
+                abs(sin(theta_receiver)) < 1e-6
+            s_fallback = arc_length(ray_main);
+            A_geom = 1 / (4 * pi * s_fallback);
+            eigenray_geom_spreading(k) = A_geom;
+            continue;
+        end
+
+        J = abs((r_main / sin(theta_receiver)) * ...
+            dr_dtheta);
+
+        A_geom = (1/(4*pi)) * ...
+            sqrt(abs(c_rec*cos(theta0)/(c_src*J)));
+        eigenray_geom_spreading(k) = A_geom;
+    end
+end
+
+% Supporting functions
+function [ray_path, segment_times, segment_lengths, ...
+        bounce_types, bounce_angles] = ...
+        trace_ray(env, source, theta0)
+    ds = 10.0;
+    max_steps = 500000;
+    x = 0.0;
+    z = source.depth;
+    c0 = sound_speed(z);
+    p = cos(theta0) / c0;
+    dz = sign(sin(theta0)) * 1e-3;
+
+    path = zeros(max_steps, 2);
+    time_segments = zeros(max_steps,1);
+    len_segments  = zeros(max_steps,1);
+    bounce_types = {};
+    bounce_angles = [];
+    path(1,:) = [x, z];
+    n = 1;
+
+    for step = 1:max_steps
+        c = sound_speed(z);
+        arg = p * c;
+
+        if abs(arg) >= 1.0
+            dz = -dz;
+            arg = 2 - arg;
+        end
+
+        theta = sign(dz) * acos(arg);
+        dx = ds * cos(theta);
+        dz_step = ds * sin(theta);
+        x_new = x + dx;
+        z_new = z + dz_step;
+
+        if z_new <= 0
+            bounce_types{end+1} = "surface";
+            bounce_angles(end+1) = abs(theta);
+            z_new = -z_new;
+            dz = -dz;
+        elseif z_new >= env.max_depth
+            bounce_types{end+1} = "bottom";
+            bounce_angles(end+1) = abs(theta);
+            z_new = 2*env.max_depth - z_new;
+            dz = -dz;
+        end
+
+        c_local = sound_speed(0.5*(z + z_new));
+        time_segments(n) = ds / c_local;
+        len_segments(n)  = ds;
+        x = x_new;
+        z = z_new;
+        n = n + 1;
+        path(n,:) = [x, z];
+
+        if x >= env.max_range
+            break;
+        end
+    end
+
+    ray_path = path(1:n,:);
+    segment_times = time_segments(1:n);
+    segment_lengths = len_segments(1:n);
+end
+
+function c = sound_speed(z)
+    z0 = 1300.0;
+    c0 = 1500.0;
+    eps = 0.00737;
+    zbar = 2 * (z - z0) / z0;
+    c = c0 * (1 + eps * (zbar - 1 + exp(-zbar)));
+end
+
+function alpha = thorp_absorption(f_kHz)
+    f2 = f_kHz.^2;
+    alpha = 0.11 * f2 ./ (1 + f2) ...
+          + 44 * f2 ./ (4100 + f2) ...
+          + 2.75e-4 * f2 ...
+          + 0.003;
+end
+
+function R = bottom_reflection(theta_i, depth)
+    rho1 = 1000;
+    c1 = sound_speed(depth);
+    rho2 = 1800;
+    c2 = 1700;
+    Z1 = rho1 * c1;
+    Z2 = rho2 * c2;
+    sin_theta_t = (c1/c2) * sin(theta_i);
+    if abs(sin_theta_t) > 1
+        R = -1;
+        return;
+    end
+    theta_t = asin(sin_theta_t);
+    R = (Z2*cos(theta_i) - Z1*cos(theta_t)) / ...
+        (Z2*cos(theta_i) + Z1*cos(theta_t));
+end
+\end{verbatim}
+
+\section{C-Linear Curvature Model Implementation}
+
+The c-linear curvature model uses discretized circular arcs based on local sound speed gradients. This implementation includes hybrid spherical-cylindrical spreading loss.
+
+\begin{verbatim}
+% Discretized c Linear Model
+% Based on the c linear method described by
+% Jensen on p. 209-211
+% Uses local curvature R = c(z) / (g_local * cos(theta))
+
+clear; close all; clc;
+
+% Source/receiver
+z_s = 1000;    % source depth (m)
+r_s = 0;       % source range (m)
+r_rec = 100000; % receiver range (m)
+z_rec = 1000;  % receiver depth (m)
+
+% Ray fan
+angles_deg = linspace(-30,30,10001);
+angles = deg2rad(angles_deg);
+depth_tol = 5; % eigenray hit tolerance (m)
+
+% Numerical stepping
+ds = 30.0; % arc-length step (m)
+max_steps = 5e7;
+max_range = r_rec * 1.2;
+
+% Boundaries
+z_min = 0; % surface (m)
+z_max = 8000; % bottom (m)
+
+% Transfer loss
+A0 = 1.0; % initial amplitude at source
+f = 100; % frequency for absorption calculation
+r_transition = z_max; % transition range
+
+% Sound speed and derivative (Munk)
+c0 = 1500;
+z0_munk = 1300;
+eps_munk = 0.00737;
+
+c_of_z = @(z) c0 .* ( 1 + eps_munk .* ...
+    ((2*(z - z0_munk)./z0_munk) - 1 + ...
+    exp(-2*(z - z0_munk)./z0_munk)));
+
+dc_dz = @(z) (2 * c0 * eps_munk ./ z0_munk) .* ...
+    (1 - exp(-2*(z - z0_munk)./z0_munk));
+
+% Ray tracing
+eigenrays = {};
+
+for ia = 1:length(angles)
+    theta = angles(ia);
+    x = r_s; z = z_s; t = 0;
+
+    est_size = min(ceil(max_range/ds)*3, max_steps);
+    rpath = zeros(1, est_size);
+    zpath = zeros(1, est_size);
+    tpath = zeros(1, est_size);
+    rpath(1) = x; zpath(1) = z; tpath(1) = t;
+    idx = 1;
+    A_reflection = 1;
+    step = 0;
+    found = false;
+
+    last_finite_idx = 1;
+    second_last_finite_idx = 0;
+
+    while x <= max_range && step < max_steps
+        step = step + 1;
+
+        % C LINEAR METHOD
+        c_curr = c_of_z(z);
+        g_local = dc_dz(z);
+        kappa1 = -g_local.* cos(theta) ./ c_curr;
+
+        % EULER STEP
+        theta_new = theta + ds * kappa1;
+        x_new = x + ds * cos(theta);
+        z_new = z + ds * sin(theta);
+        t_new = t + ds / c_curr;
+
+        % REFLECTION HANDLING
+        if (z_new < z_min) || (z_new > z_max)
+            if z_new < z_min
+                alpha = (z_min - z) / (z_new - z);
+                z_hit = z_min;
+            else
+                alpha = (z_max - z) / (z_new - z);
+                z_hit = z_max;
+                c_at_hit = c_of_z(z_hit);
+                A_reflection = A_reflection * ...
+                    bottom_reflection(theta_new, c_at_hit);
+            end
+            alpha = max(0,min(1,alpha));
+            x_hit = x + alpha * (x_new - x);
+            t_hit = t + alpha * (t_new - t);
+
+            idx = idx + 1;
+            rpath(idx) = x_hit;
+            zpath(idx) = z_hit;
+            tpath(idx) = t_hit;
+            second_last_finite_idx = last_finite_idx;
+            last_finite_idx = idx;
+
+            idx = idx + 1;
+            rpath(idx) = NaN;
+            zpath(idx) = NaN;
+            tpath(idx) = NaN;
+
+            theta = -theta;
+
+            ds_rem = ds * (1 - alpha);
+            if ds_rem > 0
+                x = x_hit + ds_rem * cos(theta);
+                z = z_hit + ds_rem * sin(theta);
+                c_at_hit = c_of_z(z_hit);
+                t = t_hit + ds_rem / c_at_hit;
+                idx = idx + 1;
+                rpath(idx) = x;
+                zpath(idx) = z;
+                tpath(idx) = t;
+                second_last_finite_idx = last_finite_idx;
+                last_finite_idx = idx;
+            else
+                x = x_hit; z = z_hit; t = t_hit;
+            end
+        else
+            x = x_new;
+            z = z_new;
+            theta = theta_new;
+            t = t_new;
+            idx = idx + 1;
+            rpath(idx) = x;
+            zpath(idx) = z;
+            tpath(idx) = t;
+            second_last_finite_idx = last_finite_idx;
+            last_finite_idx = idx;
+        end
+
+        % EIGENRAY CHECK
+        if second_last_finite_idx > 0 && ~found
+            i1 = second_last_finite_idx;
+            i2 = last_finite_idx;
+            r1 = rpath(i1); z1 = zpath(i1); t1 = tpath(i1);
+            r2 = rpath(i2); z2 = zpath(i2); t2 = tpath(i2);
+
+            if ( (r1 <= r_rec && r2 >= r_rec) || ...
+                 (r1 >= r_rec && r2 <= r_rec) ) && ...
+                 abs(r2-r1) > 1e-12
+                alpha = (r_rec - r1) / (r2 - r1);
+                z_at_r = z1 + alpha*(z2 - z1);
+                t_at_r = t1 + alpha*(t2 - t1);
+
+                if abs(z_at_r - z_rec) <= depth_tol
+                    entry.theta0 = angles(ia);
+                    entry.rpath = rpath(1:idx);
+                    entry.zpath = zpath(1:idx);
+                    entry.tt = tpath(1:idx);
+                    entry.z_at_r = z_at_r;
+                    entry.t_at_r = t_at_r;
+
+                    % Calculate path length
+                    finite_idx = find(~isnan(rpath(1:idx)));
+                    pos_i1 = find(finite_idx == i1, 1);
+                    path_len = 0;
+                    if pos_i1 > 1
+                        for kkf = 1:(pos_i1-1)
+                            ind_a = finite_idx(kkf);
+                            ind_b = finite_idx(kkf+1);
+                            dr = rpath(ind_b) - rpath(ind_a);
+                            dz = zpath(ind_b) - zpath(ind_a);
+                            path_len = path_len + ...
+                                sqrt(dr.^2 + dz.^2);
+                        end
+                    end
+                    seg_dist = sqrt((r2-r1)^2 + (z2-z1)^2);
+                    path_len = path_len + alpha * seg_dist;
+
+                    % Absorption loss
+                    path_len_km = path_len/1000;
+                    alpha_dB_per_km = ...
+                        thorp_absorption(f/1000);
+                    ABSORPTION_abs_dB = ...
+                        alpha_dB_per_km * path_len_km;
+                    A_abs = 10^(-ABSORPTION_abs_dB / 20);
+
+                    % Spreading loss
+                    if path_len > r_transition
+                        SLdB = 20*log10(r_transition) + ...
+                            10*log10(path_len-r_transition);
+                    else
+                        SLdB = 20 * log10(path_len);
+                    end
+                    SL_abs = 10^(-SLdB / 20);
+                    entry.path_len = path_len;
+                    amplitudeLinear = A0 * A_abs * ...
+                        SL_abs * A_reflection;
+                    entry.A_at_r = 20*log10(amplitudeLinear);
+                    eigenrays{end+1} = entry;
+                    found = true;
+                end
+            end
+        end
+
+        if x > r_rec + 1000
+            break;
+        end
+    end
+end
+
+% Supporting functions
+function R = bottom_reflection(theta_i, c1)
+    rho1 = 1000;
+    rho2 = 1900;
+    c2 = 1650;
+    Z1 = rho1 * c1;
+    Z2 = rho2 * c2;
+    sin_theta_t = (c1/c2) * sin(theta_i);
+    if abs(sin_theta_t) > 1
+        R = -1;
+        return;
+    end
+    theta_t = asin(sin_theta_t);
+    R = (Z2*cos(theta_i) - Z1*cos(theta_t)) / ...
+        (Z2*cos(theta_i) + Z1*cos(theta_t));
+end
+
+function alpha_loss = thorp_absorption(f_kHz)
+    f2 = f_kHz.^2;
+    alpha_loss = 3.3e-3 + (0.11 * f2) ./ (1 + f2) ...
+          + (44 * f2) ./ (4100 + f2) + 3.0e-4 * f2;
+end
+\end{verbatim}
+
+\section{Bellhop Configuration}
+
+The Bellhop model was configured using the following environment file (\texttt{scenario.env}). The configuration specifies a Munk sound speed profile sampled at 42 depth points, acoustic halfspace bottom boundary conditions, source/receiver geometry, and eigenray tracing mode.
+
+\begin{verbatim}
+'Munk eigenrays'
+50.0                    ! Frequency (Hz)
+1                       ! Number of media
+'CVW'                   ! SSP option (analytic, C-linear, etc)
+42 0.0 8000.0          ! Number of SSP points, top/bottom depth
+   0.00  1548.52  /    ! Depth (m), Sound speed (m/s)
+   195.12  1530.66  /
+   390.24  1518.29  /
+   ... (42 depth-speed pairs defining Munk profile)
+   8000.00  1602.90  /
+'A' 0.0                 ! Bottom boundary type (Acoustic halfspace)
+8000.0 1650.0 0.0 1.9 0.0 0.0 /
+                        ! depth, cp, cs, rho, ap, as
+1                       ! Number of source depths
+1000.0 /               ! Source depth (m)
+1                       ! Number of receiver depths
+1000.0 /               ! Receiver depth (m)
+1                       ! Number of receiver ranges
+100.0 /                ! Receiver range (km)
+'E'                     ! Run type (Eigenray)
+10001                   ! Number of beams
+-30.0 30.0 /           ! Launch angle limits (degrees)
+30.0 100000.0 120.0    ! Step size, max range, max time
+\end{verbatim}
+
+The eigenray arrivals were analyzed using the following MATLAB wrapper:
+
+\begin{verbatim}
+% Run Bellhop eigenray tracing
+bellhop('scenario');
+
+% Modify env file for arrivals output
+env_content = fileread('scenario.env');
+env_content = strrep(env_content, '''E''', '''A''');
+fid = fopen('scenario_arrivals.env', 'w');
+fprintf(fid, '%s', env_content);
+fclose(fid);
+
+% Run arrivals calculation
+bellhop('scenario_arrivals');
+
+% Read arrivals file
+[Arr, Pos] = read_arrivals_asc('scenario_arrivals.arr');
+
+% Extract eigenray data
+Narr = Arr(irr, ird, isd).Narr;
+for k = 1:Narr
+    launch_angle = Arr(irr, ird, isd).SrcDeclAngle(k);
+    arrival_angle = Arr(irr, ird, isd).RcvrDeclAngle(k);
+    n_bottom = Arr(irr, ird, isd).NumBotBnc(k);
+    n_surface = Arr(irr, ird, isd).NumTopBnc(k);
+    arrival_time = real(Arr(irr, ird, isd).delay(k));
+    amplitude_linear = abs(Arr(irr, ird, isd).A(k));
+    amplitude_dB = 20*log10(amplitude_linear);
+end
+\end{verbatim}
 
 \end{document}
