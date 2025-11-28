@@ -1,6 +1,8 @@
 function Full_model()
     close all; clear; clc;
 
+    shared_params;
+
     % ============================================================
     % FLAG TO CHOOSE GEOMETRICAL SPREADING MODEL
     % 0 = Jensen Jacobian model (complex spreading)
@@ -10,21 +12,11 @@ function Full_model()
     spreading_mode = 0;
     % ============================================================
 
-    % Environment parameters
-    env.max_depth = 8000;     
-    env.max_range = 100000;   
-
-    % Source parameters
-    source.depth = 1000;                         
-    source.launch_angles = deg2rad(linspace(-25, 25, 50000)); 
-
-    % Receiver parameters
-    receiver.depth = 1000;    
-    receiver.rng = 100000;    
-    receiver.tol = 5; 
-
-    % Acoustic parameters
-    freq = 100;   % Hz
+    % Map shared params to local variables
+    source.launch_angles = deg2rad(linspace(ray_fan.angle_min, ray_fan.angle_max, ray_fan.num_angles));
+    receiver.rng = receiver.range;
+    receiver.tol = receiver.tolerance;
+    freq = acoustic.frequency;
 
     % Storage
     eigenrays = {};
@@ -416,9 +408,10 @@ end
 
 %% Sound speed profile
 function c = sound_speed(z)
-    z0 = 1300.0;   
-    c0 = 1500.0;   
-    eps = 0.00737; 
+    shared_params;
+    z0 = ssp.z0;
+    c0 = ssp.c0;
+    eps = ssp.epsilon;
     zbar = 2 * (z - z0) / z0;
     c = c0 * (1 + eps * (zbar - 1 + exp(-zbar)));
 end
@@ -437,13 +430,11 @@ end
 %% Bottom reflection coefficient
 function R = bottom_reflection(theta_i, depth)
 
-    % Water
-    rho1 = 1000;   
+    shared_params;
+    rho1 = seabed.rho_water;
     c1 = sound_speed(depth);
-
-    % Sandy seabed
-    rho2 = 1800;   
-    c2 = 1700; 
+    rho2 = seabed.rho_bottom;
+    c2 = seabed.c_bottom; 
 
     Z1 = rho1 * c1;
     Z2 = rho2 * c2;

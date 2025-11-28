@@ -6,37 +6,38 @@
 clear; close all; clc;
 
 %% ----------------- User parameters -----------------
+shared_params;
 
 % Source/receiver
-z_s = 1000;    % source depth (m)
-r_s = 0;       % source range (m)
-r_rec = 100000; % receiver range (m)
-z_rec = 1000;  % receiver depth (m)
+z_s = source.depth;
+r_s = source.range;
+r_rec = receiver.range;
+z_rec = receiver.depth;
 
 % Ray fan
-angles_deg = linspace(-30,30,10001);
+angles_deg = linspace(ray_fan.angle_min, ray_fan.angle_max, ray_fan.num_angles);
 angles = deg2rad(angles_deg);
-depth_tol = 5; % eigenray hit tolerance (m)
+depth_tol = receiver.tolerance;
 
 % Numerical stepping
 ds = 30.0; % arc-length step (m)
 max_steps = 5e7;
-max_range = r_rec * 1.2;
+max_range = receiver.range * 1.2;
 
 % Boundaries
-z_min = 0; % surface (m)
-z_max = 8000; % bottom (m)
+z_min = env.z_min;
+z_max = env.z_max;
 
 % Transfer loss
 A0 = 1.0; % initial amplitude at source
-f = 100; % frequency of source signal (for absorption coefficient calculation)
+f = acoustic.frequency;
 r_transition = z_max; % transition range from spherical spreading to cylindrical
 
 %% ----------------- Sound speed and derivative (Munk) -----------------
 % Munk SSP
-c0 = 1500;           % reference speed (m/s)
-z0_munk = 1300;      % reference depth (m)
-eps_munk = 0.00737;     % scale epsilon 
+c0 = ssp.c0;
+z0_munk = ssp.z0;
+eps_munk = ssp.epsilon; 
 
 c_of_z = @(z) c0 .* ( 1 + eps_munk .* ((2*(z - z0_munk)./z0_munk) - 1 + exp(-2*(z - z0_munk)./z0_munk)));
 % analytic derivative of Munk
@@ -325,9 +326,10 @@ end
 
 % Reflection and frequency absorption functions
 function R = bottom_reflection(theta_i, c1)
-    rho1 = 1000;
-    % Sandy seabed
-    rho2 = 1900;   c2 = 1650; 
+    shared_params;
+    rho1 = seabed.rho_water;
+    rho2 = seabed.rho_bottom;
+    c2 = seabed.c_bottom; 
     Z1 = rho1 * c1;
     Z2 = rho2 * c2;
     sin_theta_t = (c1/c2) * sin(theta_i);
