@@ -67,8 +67,8 @@ fprintf(fid, 'SUMMARY COMPARISON\n');
 fprintf(fid, '========================================\n\n');
 fprintf(fid, 'Model                    | Eigenrays Found\n');
 fprintf(fid, '-------------------------|----------------\n');
-fprintf(fid, 'C-Linear Curvature       | 54\n');
-fprintf(fid, 'Ray Parameter            | 56\n');
+fprintf(fid, 'C-Linear Curvature       | %d\n', length(clinear_eigenrays));
+fprintf(fid, 'Ray Parameter            | %d\n', ray_param_count);
 fprintf(fid, 'Bellhop (reference)      | %d\n', bellhop_count);
 fprintf(fid, '\n');
 

@@ -40,11 +40,11 @@ receiver.tolerance = 10;       % Eigenray depth tolerance (m)
 Edit `scenario.env` for Bellhop (near bottom of file):
 ```
 1
-1000.0 /                      # Source depth (m)
+100.0 /                       ! Source depth (m)
 1
-1000.0 /                      # Receiver depth (m)
+2000.0 /                      ! Receiver depth (m)
 1
-50.0 /                        # Receiver range (km) - NOTE: kilometers not meters!
+15.0 /                        ! Receiver range (km) - Bellhop uses km for range
 'E'
 501                           # Number of rays
 -20.0 20.0 /                  # Angle range (degrees)
@@ -52,7 +52,8 @@ Edit `scenario.env` for Bellhop (near bottom of file):
 ```
 
 **Important notes:**
-- Receiver range in scenario.env uses **kilometers** (50.0), shared_params uses **meters** (50000)
+- **Units in scenario.env:** Depths use **meters**, range uses **kilometers** (Bellhop convention)
+- Range conversion: scenario.env uses km, shared_params.m uses meters (e.g., 15.0 km = 15000 m)
 - After changing scenario.env, delete Bellhop cache: `rm scenario*.arr scenario*.ray at/scenario*`
 - If you change SSP parameters in shared_params, regenerate scenario.env SSP section:
   ```matlab
