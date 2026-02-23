@@ -17,3 +17,10 @@ at/
 # Some larger pdf files
 Computational-Ocean-Acoustics.pdf
 Underwater acoustics presentation.pdf
+
+# Generated outputs
+comparison_results.txt
+figures/*.png
+figures/*.pdf
+temp_*.mat
+scenario_arrivals.env
