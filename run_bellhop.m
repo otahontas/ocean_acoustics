@@ -93,12 +93,8 @@ for k = 1:Narr
     amplitude_linear = abs(Arr(irr, ird, isd).A(k));
     amplitude_dB = 20*log10(amplitude_linear);
 
-    % Calculate path length from time and average sound speed
-    c_avg = 1500; % approximate
-    path_length = arrival_time * c_avg;
-
-    fprintf('Eigenray %d: Launch angle = %.2f°, Arrival angle = %.2f°, Bounces: %dB/%dS, Path length = %.2f m, Time = %.3f s, Amp = %.2f dB\n', ...
-        k, launch_angle, arrival_angle, n_bottom, n_surface, path_length, arrival_time, amplitude_dB);
+    fprintf('Eigenray %d: Launch angle = %.2f°, Arrival angle = %.2f°, Bounces: %dB/%dS, Time = %.3f s, Amp = %.2f dB\n', ...
+        k, launch_angle, arrival_angle, n_bottom, n_surface, arrival_time, amplitude_dB);
 end
 
 fprintf('============================\n\n');
